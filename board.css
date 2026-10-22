@@ -81,7 +81,7 @@ body.idle .about{opacity:.07;transition-duration:2.4s}
 @media (display-mode:standalone){.top,#page,.foot{display:none!important}.boardwrap{padding-top:16px}}
 .boardwrap{padding:0 var(--gutter)}
 /* Controls: one row on wide screens; on phones, play + station, then volume + brightness side by side */
-.face .row{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto auto auto auto;gap:12px 16px;align-items:center}
+.face .row{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto auto auto auto auto;gap:12px 16px;align-items:center}
 .fz{display:flex;align-items:center;gap:10px}
 .fz .ico{display:block;width:20px;height:20px;fill:var(--on-surf-v);flex:0 0 auto}
 .mutebtn{flex:0 0 auto;width:32px;height:32px;margin:-6px -4px -6px -6px;padding:6px;border:0;border-radius:16px;background:transparent;color:var(--on-surf-v);cursor:pointer;display:grid;place-items:center;position:relative;overflow:hidden}
@@ -98,7 +98,8 @@ body.idle .about{opacity:.07;transition-duration:2.4s}
   .face .sitbtn{grid-column:5/6;grid-row:1}
   .face .vol{grid-column:1/3;grid-row:2}
   .face .br{grid-column:3/6;grid-row:2}
-  .face .dots{grid-column:1/6;grid-row:3;justify-content:center}
+  .face .sleepbtn{grid-column:1/3;grid-row:3;justify-self:start}
+  .face .dots{grid-column:3/6;grid-row:3;justify-content:flex-end}
   .face .lbl{display:none}
   .fz .ico{display:block}
   .icon{width:40px;height:40px}
@@ -142,3 +143,9 @@ html.broadcast .bcstart{position:fixed;left:50%;top:50%;transform:translate(-50%
 
 /* screen-reader-only text (the board described in words); visually hidden */
 .sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+
+/* SLEEP: a labelled clock-radio button; shows the minutes left while the timer runs */
+.sleepbtn{height:32px;min-width:74px;white-space:nowrap;padding:0 10px;border:1px solid var(--outline);border-radius:6px;background:transparent;color:var(--on-surf-v);font:900 14px/1 var(--dots);letter-spacing:1px;cursor:pointer;position:relative;overflow:hidden}
+.sleepbtn::before{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s}.sleepbtn:hover::before{opacity:.08}
+.sleepbtn[aria-pressed="true"]{background:var(--p);color:var(--on-p);border-color:transparent}
+html.broadcast .sleepbtn{display:none}

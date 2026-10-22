@@ -1,6 +1,6 @@
 # Loaf FM · loaffm.com
 
-A tiny pixel cat that keeps you company while you work: an LED clock radio playing its own generated lofi music, with a cat on the desk who wanders, naps, watches her own little sky, and purrs when you pet her.
+A tiny pixel cat named Loafie who keeps you company while you work: an LED clock radio playing its own generated lofi music, with a cat on the desk who wanders, naps, watches her own little sky, and purrs when you pet her.
 
 Plain static files. No build step, no server code, no API keys, no cookies, no analytics, no location.
 
@@ -71,16 +71,11 @@ Tuned for focus, following the listening research: few sudden changes (changing-
 
 ## Turning on analytics
 
-Analytics are **off**. Every page loads `analytics.js`, which does nothing while `GA_MEASUREMENT_ID` is empty: no requests, no cookies. To switch on Google Analytics 4:
+The privacy page already describes Google Analytics. To switch it on, paste your GA4 Measurement ID into `GA_MEASUREMENT_ID` in `analytics.js`, and deploy. In the GA4 data stream, leave enhanced measurement's "Page changes based on browser history events" on (that counts pages swapped in without a reload), turn Google Signals off, and set data retention to the minimum you need. Until the ID is set, analytics.js does nothing.
 
-1. Create a GA4 property and a web data stream for loaffm.com. In the stream's enhanced measurement settings, leave "Page changes based on browser history events" on: that's how pages swapped in without a reload get counted. In Admin, turn Google Signals off and set data retention to the minimum you need.
-2. Update `privacy.html` **before** deploying the ID (the privacy page currently, and truthfully, says there are no analytics and no cookies):
-   - Lede: replace "sets no cookies, runs no ads and no analytics" with "runs no ads, and uses Google Analytics to count visits".
-   - Add a section after "What's stored, and where":
-     > **Analytics.** We use Google Analytics to see how many people visit and which pages they use. It sets cookies (`_ga`, `_ga_*`) to tell visits apart, except in the EEA, the UK and Switzerland, where it runs without cookies. IP addresses aren't stored by Google Analytics, advertising features are off, and we don't combine this with anything else. If your browser sends Do Not Track or Global Privacy Control, Loaf FM doesn't load Google Analytics at all. Google's policy: https://policies.google.com/privacy
-   - Add a row to the services table: `Google Analytics | Every page view | Page address, referrer, device and browser type, approximate location from IP`.
-   - Remove "We don't use cookies" style lines anywhere else, and change the date at the top.
-3. Paste the Measurement ID into `analytics.js` and deploy. Bump `CACHE` in `sw.js` so installed copies pick it up.
+## Deploying an update
+
+Just upload the changed files. No version bump is needed: the service worker always fetches from the server first (revalidating rather than trusting the browser cache), so anyone online gets the new version on their next visit, and installed copies refresh their offline files as they go. Only change `CACHE` in `sw.js` if you change how `sw.js` itself caches.
 
 ## Before adding ads or affiliate links
 

@@ -87,6 +87,7 @@ function nightDim(d){if(BC&&BCQ.get('dim')==='0')return 1;const h=d.getHours()+d
 /* ================= Sound =================
    Everything Loaf FM plays is made in the browser: its own music stations and the calm sounds. No live radio. */
 
+let sleepAt=0;function sleepLeft(){return sleepAt?Math.max(1,Math.ceil((sleepAt-Date.now())/60000)):0;}
 let actx=null,freq=null;const bands=new Float32Array(16);
 function playing(){return !!gen;}
 /* ================= Calm sounds, made right here: nothing to stream, nothing to buffer ================= */
@@ -281,10 +282,10 @@ function vu(t){const on=playing();
 let dirty=true,cardStart=0,cardKey='';
 let boardTextLast='';function boardText(now){const el=document.getElementById('boardText');if(!el)return;const ck=clock(now);
   const s=(BC?'':ck.s+' '+(H24?'':ck.ap)+', '+now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'. ')+(gen?'Playing '+stationName()+'.':'Nothing playing.')+(S.sitStart?' Sitting.':'');if(s!==boardTextLast){boardTextLast=s;el.textContent=s;}}
-function currentCard(){if(BC)return {k:'bc'+S.station,label:'LOAF FM',text:stationName()};const sp=sitPhase();
+function currentCard(){if(BC)return {k:'bc'+S.station,label:'LOAF FM',text:stationName()};if(tuning)return {k:'tune',label:tuneFreq()+' FM',text:'',tune:true};const sp=sitPhase();
   if(sp&&sp.ph==='sit')return {k:'sit',label:'SITTING',text:sp.left+(sp.left===1?' minute':' minutes')};
   if(sp&&sp.ph==='rest')return {k:'rest',label:'REST',text:'no hurry'};
-  return playing()?{k:muted?'mute':'radio',label:muted?'MUTED':gen?(MUSIC.some(m=>m.id===gen.id)?'LOAF FM':'SOUND'):'ON AIR',text:stationName()}:{k:'cat',label:'KITTY',text:catWords()};}
+  return playing()?{k:muted?'mute':'radio',label:muted?'MUTED':(FREQ[gen&&gen.id]||'88.3')+' FM',lamp:!muted,text:stationName()}:{k:'cat',label:'LOAFIE',text:catWords()};}
 
 /* ================= The window ================= */
 const flash={msg:'',until:0};function say(m){flash.msg=ascii(m).toUpperCase().slice(0,60);flash.until=Date.now()+4000;}
@@ -303,10 +304,11 @@ function draw(t,now){fb.fill(-1);const P=pal();
   let card;if(flash.until>Date.now())card={label:'',text:flash.msg,flash:true};
   else{card=currentCard();if(card.k+card.text!==cardKey){cardKey=card.k+card.text;cardStart=t;}}
   let twoLines=false;
-  if(card){const wrapIt=(!on||BC)&&!card.flash,lines=wrapIt?wrap(card.text,area):[card.text];const canWrap=wrapIt&&lines.length<=2;twoLines=canWrap&&lines.length>1; /* in broadcast mode a long station name wraps rather than crawls */
+  if(card){const wrapIt=!card.flash,lines=wrapIt?wrap(card.text,area):[card.text];const canWrap=wrapIt&&lines.length<=2;twoLines=canWrap&&lines.length>1; /* in broadcast mode a long station name wraps rather than crawls */
     const tw2=textW(card.text,'big');const scroll=!canWrap&&tw2>area;const el=t-cardStart;
     const night=nightDim(now)<.7;const speed=(card.slow?11:15)*(night?.85:1),lead=2.2,tail=2; /* unhurried; slower still after dark */const travel=scroll?(tw2-area)/speed:0;
-    if(card.label){let lb=card.label;while(lb.length>1&&textW(lb,'small')>area)lb=lb.slice(0,-1);text(lb,x0,4,'small',P.S2);}
+    if(card.label){let lb=card.label;while(lb.length>1&&textW(lb,'small')>area)lb=lb.slice(0,-1);text(lb,x0,4,'small',card.tune?P.C:P.S2);}
+    {const sl=sleepLeft(),right=sl?'SLEEP '+sl:(card.lamp||card.tune)?'STEREO':'';if(right&&!BC){const w=textW(right,'small'),rx=W-2-w;if(rx>x0+textW(card.label||'','small')+3)text(right,rx,4,'small',sl?P.S2:card.tune?dim(P.A,.35+.3*Math.random()):P.A);}} /* the STEREO lamp lights when a station locks in */
     clip=[x0,W];
     if(canWrap)lines.forEach((l,i)=>text(l,x0,(card.label?11:(lines.length===1?12:6))+i*9,'big',card.flash?P.A:P.C));
     else if(scroll){const off=Math.round(clamp((el-lead)*speed,0,tw2-area));text(card.text,x0-off,11,'big',P.C);}
@@ -364,7 +366,16 @@ function restartLoop(){loopGen++;loop(loopGen);}
 /* ================= Face ================= */
 const $=id=>document.getElementById(id);
 const stationEl=$('station');
-function setStation(s){S.station=s.id;S.stationName=s.name;save();dirty=true;fillStations();if(gen)playRadio();}
+function setStation(s){const from=S.station,was=!!gen;S.station=s.id;S.stationName=s.name;save();dirty=true;fillStations();if(was){if(from!==s.id&&!BC)tuneTo(from,s.id);else playRadio();}}
+/* Changing station while one plays: the dial rolls through the frequencies in between with a breath of FM static, then the new station fades in */
+let tuning=null;
+function tuneTo(from,to){genStop(true);const f0=parseFloat(FREQ[from]||'88.3'),f1=parseFloat(FREQ[to]||'88.3'),dur=Math.min(1.1,.45+Math.abs(f1-f0)*.05);
+  tuning={f0,f1,t0:performance.now(),dur:dur*1000};dirty=true;staticBurst(dur);
+  setTimeout(()=>{if(tuning&&tuning.f1===f1){tuning=null;dirty=true;if(S.station===to)genStart(to);}},dur*1000);}
+function tuneFreq(){if(!tuning)return null;const q=Math.min(1,(performance.now()-tuning.t0)/tuning.dur),e=q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2;return (Math.round((tuning.f0+(tuning.f1-tuning.f0)*e)*5)/5).toFixed(1);}
+function staticBurst(dur){if(muted)return;try{const a=ensureAudio(),t=a.currentTime,s=a.createBufferSource();s.buffer=makeNoise(a,1.5,'white');const bp=a.createBiquadFilter();bp.type='bandpass';bp.Q.value=.8;
+  bp.frequency.setValueAtTime(1200,t);bp.frequency.linearRampToValueAtTime(2600,t+dur*.5);bp.frequency.linearRampToValueAtTime(1500,t+dur);const g=a.createGain(),lv=.05*vol();
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(lv,t+.06);g.gain.setValueAtTime(lv*.8,t+dur*.6);g.gain.linearRampToValueAtTime(0,t+dur);s.connect(bp).connect(g).connect(a.destination);s.start(t);s.stop(t+dur+.1);}catch(e){}}
 function fillStations(){stationEl.innerHTML='';{const og=document.createElement('optgroup');og.label='Loaf FM';MUSIC.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;og.appendChild(o);});stationEl.appendChild(og);}{const og=document.createElement('optgroup');og.label='Calm';CALM.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;og.appendChild(o);});stationEl.appendChild(og);}
   if(!S.station){const o=document.createElement('option');o.value='';o.textContent='Pick a sound';stationEl.insertBefore(o,stationEl.firstChild);}
   stationEl.value=S.station||'';}
@@ -445,11 +456,11 @@ const cat={x:60,dir:1,state:'sit',until:3,target:null,eat:null,blink:0,nextBlink
 let purrNode=null;
 const ACT_WORDS={loaf:'loafing',groom:'grooming',yawn:'yawning',glance:'looking around',stretch:'stretching'};
 function catWords(){if(cat.inBox)return cat.state==='sleep'?'asleep in her box':cat.purr?'purring in her box':'in her box';if(cat.state==='hop')return 'hop!';if(cat.state==='sleep'&&cat.away)return 'dozing till you get back';if(cat.state==='act'&&ACT_WORDS[cat.act])return ACT_WORDS[cat.act];if(cat.state==='eat')return 'eating a fish';if(cat.state==='fed')return 'happy and full';if(cat.purr)return 'purring';if(cat.state==='sleep')return 'asleep';if(cat.state==='walk')return 'wandering';
-  return {rain:'watching the rain',snow:'watching the snow',leaves:'watching leaves fall',petals:'watching petals',fireflies:'watching fireflies'}[skyNow]||(isNight(NOW())?'moon gazing':'on the desk');}
+  return {rain:'watching the rain',snow:'watching the snow',leaves:'watching leaves fall',petals:'watching petals',fireflies:'watching fireflies'}[skyNow]||(cat.aloof?'pretending not to hear you':isNight(NOW())?'moon gazing':'on the desk');}
 function pick(t,now){const night=nightDim(now)<.7;const r=Math.random();
   if(night&&r<.6){cat.state='sleep';cat.until=t+15+Math.random()*25;return;}
   if(r<(RM.matches?.1:.25)){cat.state='walk';cat.target=DESK_MIN+Math.random()*(W-14-DESK_MIN);return;}
-  if(r<.52){cat.state='sit';cat.until=t+5+Math.random()*8;return;}
+  if(r<.52){cat.state='sit';cat.until=t+5+Math.random()*8;cat.aloof=Math.random()<.2;return;}
   if(r<.62)return act(t,'loaf');
   if(r<.70)return act(t,'groom');
   if(r<.74)return act(t,'yawn');
@@ -464,7 +475,7 @@ const BOX=['X..................X','.X................X.','..LLLLLLLLLLLLLLLL..',
 const BOXC={X:0xb8894f,L:0xdcb47a,H:0xd1a86f,T:0xc49a62,D:0x8f6b3d,S:0xa07a4a,K:0xae8550,W:0xece2cf};
 function hop(t,into){cat.state='hop';cat.hop={x0:cat.x,x1:into?BOX_IN:BOX_OUT,t0:t,d:.65,into};cat.dir=into?-1:1;cat.inBox=false;}
 const ACT_LEN={loaf:[8,16],groom:[2.5,4],yawn:[1.4,1.4],glance:[2.6,2.6],lookup:[4,8],stretch:[1.8,1.8]};
-function act(t,a,...next){if(cat.inBox){cat.state='box';cat.t0=t;cat.until=t+6+Math.random()*8;return;}cat.state='act';cat.act=a;cat.t0=t;const [lo,hi]=ACT_LEN[a];cat.until=t+lo+Math.random()*(hi-lo);cat.queue=next;}
+function act(t,a,...next){cat.aloof=false;if(cat.inBox){cat.state='box';cat.t0=t;cat.until=t+6+Math.random()*8;return;}cat.state='act';cat.act=a;cat.t0=t;const [lo,hi]=ACT_LEN[a];cat.until=t+lo+Math.random()*(hi-lo);cat.queue=next;}
 /* when you've been away from the page for a while she curls up; when you come back she wakes, yawns, stretches and wanders over */
 const AWAY_MS=10*60*1000;let lastActive=Date.now();
 function noteActive(){lastActive=Date.now();if(cat.away){cat.away=false;if(!S.sitStart){act((performance.now()-t0)/1000,'yawn','stretch');cat.comeOver=true;}}}
@@ -591,7 +602,7 @@ let idleT;function wake(){noteActive();document.body.classList.remove('idle');cl
 ['pointermove','pointerdown','keydown','touchstart','focusin','scroll','wheel'].forEach(ev=>document.addEventListener(ev,wake,{passive:true}));wake();
 /* No keyboard shortcuts on purpose: people type in other windows, and a stray key should never stop the music.
    Every control is still a normal button, so Tab and Enter work for keyboard users. */
-if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
+if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('./sw.js',{updateViaCache:'none'}).then(r=>{document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')r.update().catch(()=>{});});}).catch(()=>{}); /* check for a new service worker on every visit and whenever the tab comes back */}
 paintKeys();paintGame();
 
 
@@ -615,6 +626,15 @@ const sitKey=$('sitKey');
 function paintSit(){const on=!!S.sitStart;feedKey.disabled=on;if(pipFeed)pipFeed.disabled=on;if(pipSit){pipSit.setAttribute('aria-pressed',String(on));pipSit.title=on?'End the sit':'Sit for 20 minutes';pipSit.setAttribute('aria-label',pipSit.title);pipSit.classList.toggle('on',on);}sitKey.setAttribute('aria-pressed',String(on));sitKey.title=on?'End the sit':'Sit for 20 minutes';}
 sitKey.addEventListener('click',()=>{S.sitStart?sitEnd(false):sitStart();});
 const feedKey=$('feedKey');feedKey.addEventListener('click',dropTreat);
+/* Sleep timer, like every clock radio: 15, 30 or 60 minutes, then the music fades out over half a minute. Not saved. */
+const sleepKey=$('sleepKey');let sleepT=null;const SLEEP_STEPS=[15,30,60,0];
+function paintSleep(){const m=sleepLeft();sleepKey.setAttribute('aria-pressed',String(!!m));sleepKey.querySelector('span').textContent=m?m+' MIN':'SLEEP';
+  sleepKey.title=m?'Sleep timer: music stops in '+m+' min (tap to change)':'Sleep timer';sleepKey.setAttribute('aria-label',sleepKey.title);dirty=true;}
+sleepKey.addEventListener('click',()=>{const cur=sleepAt?Math.round((sleepAt-Date.now())/60000):0;const next=SLEEP_STEPS.find(s=>s===0?true:s>cur+.5)||0;
+  clearTimeout(sleepT);sleepAt=next?Date.now()+next*60000:0;if(sleepAt)sleepT=setTimeout(sleepNow,next*60000);paintSleep();});
+function sleepNow(){sleepAt=0;paintSleep();if(!gen)return;try{const g=gen,a=actx;g.master.gain.cancelScheduledValues(a.currentTime);g.master.gain.setValueAtTime(g.master.gain.value,a.currentTime);g.master.gain.linearRampToValueAtTime(0,a.currentTime+30);
+  setTimeout(()=>{if(gen===g)stopRadio();},30500);}catch(e){stopRadio();}}
+setInterval(()=>{if(sleepAt)paintSleep();},20000);
 setInterval(()=>{const sp=sitPhase();if(sp&&sp.ph==='done')sitEnd(true);},1000);
 if(S.sitStart&&sitPhase().ph==='done')sitEnd(true);
 paintSit();
