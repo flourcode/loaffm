@@ -44,7 +44,8 @@
   <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM</a>
 </header>
 <div class="boardwrap">
-<section class="unit" id="unit" aria-label="Loaf FM board">
+<section class="unit" id="unit" aria-label="Loaf FM board" aria-describedby="boardText">
+  <p class="sr" id="boardText"></p>
   <div class="window" id="window">
     <canvas id="bg"></canvas>
     <canvas id="led"></canvas>
@@ -80,7 +81,7 @@
 <footer class="foot">
   <div>
     <p>© 2026 Loaf FM</p>
-    <p class="credits">All music and sounds are made live in your browser.</p>
+    <p class="credits">Music and sounds are generated live in your browser.</p>
   </div>
   <nav aria-label="Footer"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
 </footer>

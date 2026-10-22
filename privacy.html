@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Privacy · Loaf FM</title>
-<meta name="description" content="What Loaf FM stores, what it sends where, and what it does not do. No accounts, no cookies, no ads, no location.">
+<meta name="description" content="What Loaf FM stores, what it sends where, and what it does not do. No accounts, no ads, no location.">
 <link rel="canonical" href="https://loaffm.com/privacy.html">
 
 <meta name="theme-color" content="#131313">
@@ -12,7 +12,7 @@
 <meta property="og:site_name" content="Loaf FM">
 <meta property="og:url" content="https://loaffm.com/privacy.html">
 <meta property="og:title" content="Privacy">
-<meta property="og:description" content="What Loaf FM stores, what it sends where, and what it does not do. No accounts, no cookies, no ads, no location.">
+<meta property="og:description" content="What Loaf FM stores, what it sends where, and what it does not do. No accounts, no ads, no location.">
 <meta property="og:image" content="https://loaffm.com/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -23,7 +23,7 @@
 <link rel="preload" href="fonts/fraunces.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="site.css">
 <link rel="stylesheet" href="board.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebPage", "headline": "Privacy", "description": "What Loaf FM stores, what it sends where, and what it does not do. No accounts, no cookies, no ads, no location.", "url": "https://loaffm.com/privacy.html", "publisher": {"@type": "Organization", "name": "Loaf FM", "url": "https://loaffm.com/"}, "dateModified": "2026-10-21"}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebPage", "headline": "Privacy", "description": "What Loaf FM stores, what it sends where, and what it does not do. No accounts, no ads, no location.", "url": "https://loaffm.com/privacy.html", "publisher": {"@type": "Organization", "name": "Loaf FM", "url": "https://loaffm.com/"}, "dateModified": "2026-10-21"}</script>
 
 </head>
 <body>
@@ -44,7 +44,8 @@
   <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM</a>
 </header>
 <div class="boardwrap">
-<section class="unit" id="unit" aria-label="Loaf FM board">
+<section class="unit" id="unit" aria-label="Loaf FM board" aria-describedby="boardText">
+  <p class="sr" id="boardText"></p>
   <div class="window" id="window">
     <canvas id="bg"></canvas>
     <canvas id="led"></canvas>
@@ -72,10 +73,10 @@
   <header>
     
     <h1>Privacy</h1>
-    <p class="meta">Last updated October 21, 2026</p>
+    <p class="meta">Last updated October 22, 2026</p>
   </header>
 
-  <p class="lede">Short version: Loaf FM has no accounts, sets no cookies, runs no ads and no analytics, and doesn't contact any other service. Your settings stay in your browser.</p>
+  <p class="lede">Short version: Loaf FM has no accounts and no ads. It uses Google Analytics to count visits. Your settings stay in your browser.</p>
 
   <h2>What's stored, and where</h2>
   <p>Your palette, sound, volume and brightness are saved in your browser's local storage on your device, so the board looks the same next time. We never receive them. Clearing your browser's site data removes them.</p>
@@ -84,8 +85,15 @@
   <h2>Your location</h2>
   <p>Loaf FM never asks for your location. The clock simply uses your device's own time and time zone.</p>
 
+  <h2>Analytics</h2>
+  <p>We use Google Analytics to see how many people visit and which pages they use. It sets cookies (<code>_ga</code>, <code>_ga_*</code>) to tell visits apart, except in the EEA, the UK and Switzerland, where it runs without cookies. Google Analytics doesn't store IP addresses, advertising features are off, and we don't combine this with anything else. If your browser sends Do Not Track or Global Privacy Control, Loaf FM doesn't load Google Analytics at all. Google's policy: <a href="https://policies.google.com/privacy" rel="noopener">policies.google.com/privacy</a>.</p>
+
   <h2>Services your browser talks to</h2>
-  <p>None besides this website. The clock, the music and the sounds are all made on your device, and the fonts are served from loaffm.com.</p>
+  <p>Besides this website, only Google Analytics. The clock, the music and the sounds are all made on your device, and the fonts are served from loaffm.com.</p>
+  <table class="table">
+    <tr><th>Service</th><th>When</th><th>What it receives</th></tr>
+    <tr><td>Google Analytics</td><td>Each page view</td><td>Page address, referrer, device and browser type, approximate location from your IP address</td></tr>
+  </table>
 
   <h2>Hosting</h2>
   <p>Our hosting provider may keep standard server logs (such as IP addresses and pages requested) for security and reliability. We don't use them to identify or track visitors.</p>
@@ -106,7 +114,7 @@
 <footer class="foot">
   <div>
     <p>© 2026 Loaf FM</p>
-    <p class="credits">All music and sounds are made live in your browser.</p>
+    <p class="credits">Music and sounds are generated live in your browser.</p>
   </div>
   <nav aria-label="Footer"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
 </footer>

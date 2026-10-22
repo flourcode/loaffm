@@ -97,7 +97,7 @@ function makeNoise(a,sec,kind){const n=Math.round(a.sampleRate*sec),b=a.createBu
     if(kind==='brown'){const s=d[0],e=d[n-1];for(let i=0;i<n;i++)d[i]-=s+(e-s)*i/(n-1);}} /* ends meet, so the loop never clicks */
   return b;}
 let muted=false,pipMute=null,pipDots=null;const vol=()=>muted?0:S.volume; /* mute is for this visit only; the volume you set is kept */
-const GEN_LEVEL={'gen:brown':.5,'gen:rain':.9,'gen:purr':.64,'gen:fire':.76,'gen:waves':1.2,'gen:late':.63,'gen:window':.6,'gen:crt':.7,'gen:sunday':.6,'gen:desert':1.04}; /* matched by ear-weighted level so switching sounds never jumps */
+const GEN_LEVEL={'gen:brown':.5,'gen:rain':2,'gen:purr':.64,'gen:fire':.76,'gen:waves':1.2,'gen:late':.63,'gen:window':.6,'gen:crt':.7,'gen:sunday':.6,'gen:desert':1.04}; /* matched by ear-weighted level so switching sounds never jumps */
 /* ===== The calm sounds =====
    All made in the browser, none of them a loop you can learn: anything that happens (a drop, a wave, a crackle, a breath)
    is scheduled a few seconds ahead with its own random timing and size. They're meant to sit under focus or a sit,
@@ -108,13 +108,17 @@ function swayGain(a,gain,base,depth,until,state){while(state.t<until){const d=rn
 const SOUNDS={
   'gen:brown':(a,dest)=>{const s=a.createBufferSource();s.buffer=makeNoise(a,8,'brown');s.loop=true;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=900;s.connect(lp).connect(dest);s.start();return {src:[s]};},
   /* rain: a soft wash with a slow drift, and a light, scattered patter of drops on top (never busy, never sharp) */
-  'gen:rain':(a,dest)=>{const white=makeNoise(a,6,'white'),s=a.createBufferSource();s.buffer=white;s.loop=true;const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=450;
-    const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=4200;const bed=a.createGain();bed.gain.value=.22;s.connect(hp).connect(lp).connect(bed).connect(dest);s.start();
-    let tn=a.currentTime+.1;const sway={t:a.currentTime};
-    return {src:[s],tick(until){swayGain(a,bed,.22,.15,until,sway);
-      while(tn<until){const at=tn,d=a.createBufferSource();d.buffer=white;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=rnd(1400,3400);bp.Q.value=4;
-        const dg=a.createGain(),len=rnd(.05,.1);dg.gain.setValueAtTime(0,at);dg.gain.linearRampToValueAtTime(rnd(.015,.05),at+.006);dg.gain.exponentialRampToValueAtTime(.0001,at+len);
-        d.connect(bp).connect(dg).connect(dest);d.start(at,rnd(0,5),len+.03);tn+=-Math.log(1-Math.random())/5;}}};}, /* about five drops a second, at random */
+  /* rain: gentle pitter-patter on a window. A low, soft hush, small taps scattered (sometimes two close together),
+     and now and then a single droplet's plink. Darker and sparser than a downpour, so it settles into the background. */
+  'gen:rain':(a,dest)=>{const white=makeNoise(a,6,'white'),s=a.createBufferSource();s.buffer=white;s.loop=true;const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=300;
+    const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=2300;const bed=a.createGain();bed.gain.value=.11;s.connect(hp).connect(lp).connect(bed).connect(dest);s.start();
+    let tn=a.currentTime+.1,pn=a.currentTime+rnd(2,5);const sway={t:a.currentTime};
+    const tap=(at,lvl)=>{const d=a.createBufferSource();d.buffer=white;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=rnd(700,2200);bp.Q.value=6;
+      const dg=a.createGain(),len=rnd(.03,.07);dg.gain.setValueAtTime(0,at);dg.gain.linearRampToValueAtTime(lvl,at+.003);dg.gain.exponentialRampToValueAtTime(.0001,at+len);d.connect(bp).connect(dg).connect(dest);d.start(at,rnd(0,5),len+.03);};
+    return {src:[s],tick(until){swayGain(a,bed,.11,.2,until,sway);
+      while(tn<until){tap(tn,rnd(.02,.045));if(Math.random()<.25)tap(tn+rnd(.04,.09),rnd(.012,.03));tn+=-Math.log(1-Math.random())/3.6;}
+      while(pn<until){const o=a.createOscillator(),g=a.createGain(),f=rnd(1500,2600);o.frequency.setValueAtTime(f,pn);o.frequency.exponentialRampToValueAtTime(f*.7,pn+.08); /* a droplet */
+        g.gain.setValueAtTime(0,pn);g.gain.linearRampToValueAtTime(.006,pn+.004);g.gain.exponentialRampToValueAtTime(.0001,pn+.12);o.connect(g).connect(dest);o.start(pn);o.stop(pn+.14);pn+=rnd(3,8);}}};}, /* a few taps a second, at random */
   /* ocean: slow swells. A wave every ten seconds or so; each one rises gently, softly breaks and takes its time draining back */
   'gen:waves':(a,dest)=>{const white=makeNoise(a,9,'white');let tn=a.currentTime+.5,sea=rnd(.55,.75);
     const bed=a.createBufferSource();bed.buffer=makeNoise(a,9,'brown');bed.loop=true;const bl=a.createBiquadFilter();bl.type='lowpass';bl.frequency.value=240;const bg=a.createGain();bg.gain.value=.17;bed.connect(bl).connect(bg).connect(dest);bed.start(); /* the far-off surf underneath */
@@ -275,6 +279,8 @@ function vu(t){const on=playing();
 /* ================= The card ================= */
 /* one card on the right: the station while the radio plays, otherwise what the cat is up to */
 let dirty=true,cardStart=0,cardKey='';
+let boardTextLast='';function boardText(now){const el=document.getElementById('boardText');if(!el)return;const ck=clock(now);
+  const s=(BC?'':ck.s+' '+(H24?'':ck.ap)+', '+now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'. ')+(gen?'Playing '+stationName()+'.':'Nothing playing.')+(S.sitStart?' Sitting.':'');if(s!==boardTextLast){boardTextLast=s;el.textContent=s;}}
 function currentCard(){if(BC)return {k:'bc'+S.station,label:'LOAF FM',text:stationName()};const sp=sitPhase();
   if(sp&&sp.ph==='sit')return {k:'sit',label:'SITTING',text:sp.left+(sp.left===1?' minute':' minutes')};
   if(sp&&sp.ph==='rest')return {k:'rest',label:'REST',text:'no hurry'};
@@ -342,7 +348,7 @@ function oops(P){if(!P.PEG)return;const w=Math.floor(Date.now()/240000);let h=Ma
   if(rnd()<.55){const x=Math.floor(rnd()*W),y=rnd()<.5?1:30;if(fb[y*W+x]<0)fb[y*W+x]=dim(P.PEG[Math.floor(rnd()*P.PEG.length)],.85);}}
 const t0=performance.now();
 function frame(){const t=(performance.now()-t0)/1000;const now=NOW();
-  draw(t,now);const P0=pal();oops(P0);let alpha=S.brightness*nightDim(now)*(RM.matches?1:.97+Math.random()*.03)*(S.sitStart?.7:1);if(!RM.matches&&Math.random()<.003)alpha*=.8;{const fl=pal().floor*S.brightness;if(alpha<fl)alpha=fl;}
+  draw(t,now);boardText(now);const P0=pal();oops(P0);let alpha=S.brightness*nightDim(now)*(RM.matches?1:.97+Math.random()*.03)*(S.sitStart?.7:1);if(!RM.matches&&Math.random()<.003)alpha*=.8;{const fl=pal().floor*S.brightness;if(alpha<fl)alpha=fl;}
   const warm=clamp(t/1.2,0,1);if(warm<1&&!P0.PEG)alpha*=warm*(.6+.4*Math.random());present(alpha); /* a short warm-up flicker on load (the pegboard just appears) */
   drawGame(t);present(alpha,gctx,gfb,GH,W*H);
   if(vidPip.ready)vidFrame();}
@@ -414,7 +420,7 @@ function paintKeys(){applyScheme();
   const on=!!gen;playKey.setAttribute('aria-pressed',String(!!on));playKey.title=on?'Stop':'Play';
   if(typeof paintPipMute==='function')paintPipMute(!!on);
   $('brightnessOut').textContent=Math.round(S.brightness*100);$('volOut').textContent=muted?'Muted':Math.round(S.volume*100);
-  muteKey.setAttribute('aria-pressed',String(muted));muteKey.setAttribute('aria-label',muted?'Unmute':'Mute');muteKey.title=muted?'Unmute (M)':'Mute (M)';volEl.closest('.vol').classList.toggle('muted',muted);
+  muteKey.setAttribute('aria-pressed',String(muted));muteKey.setAttribute('aria-label',muted?'Unmute':'Mute');muteKey.title=muted?'Unmute':'Mute';volEl.closest('.vol').classList.toggle('muted',muted);
   brightEl.style.setProperty('--v',((S.brightness-.1)/.9*100)+'%');volEl.style.setProperty('--v',(S.volume*100)+'%');}
 
 
@@ -454,8 +460,8 @@ function pick(t,now){const night=nightDim(now)<.7;const r=Math.random();
   cat.state='sleep';cat.until=t+10+Math.random()*15;}
 /* her cardboard box, at the left end of the desk: tan whatever the palette, flaps open */
 const BOX_X=2,BOX_IN=BOX_X+3,BOX_OUT=BOX_X+21,DESK_MIN=BOX_OUT;
-const BOX=['X..................X','.X................X.','..LLLLLLLLLLLLLLLL..','..TTTTTTTTTTTTTTTD..','..TTTTTTTTTTTTTTTD..','..TTTTTTTTTTTTTTTD..','..TTTTTTTTTTTTTTTD..'];
-const BOXC={X:0xb8894f,L:0xdcb47a,T:0xc49a62,D:0x8f6b3d};
+const BOX=['X..................X','.X................X.','..LLLLLLLLLLLLLLLL..','..HTTTTTTTKKTTTTTD..','..HTTTTTTTKKTWWWWD..','..HTTTTTTTKKWWWWTD..','..SSSSSSSSSSSSSSSS..']; /* H lit side, D shaded side, S shadow at the base, K packing tape, W a crooked shipping label */
+const BOXC={X:0xb8894f,L:0xdcb47a,H:0xd1a86f,T:0xc49a62,D:0x8f6b3d,S:0xa07a4a,K:0xae8550,W:0xece2cf};
 function hop(t,into){cat.state='hop';cat.hop={x0:cat.x,x1:into?BOX_IN:BOX_OUT,t0:t,d:.65,into};cat.dir=into?-1:1;cat.inBox=false;}
 const ACT_LEN={loaf:[8,16],groom:[2.5,4],yawn:[1.4,1.4],glance:[2.6,2.6],lookup:[4,8],stretch:[1.8,1.8]};
 function act(t,a,...next){if(cat.inBox){cat.state='box';cat.t0=t;cat.until=t+6+Math.random()*8;return;}cat.state='act';cat.act=a;cat.t0=t;const [lo,hi]=ACT_LEN[a];cat.until=t+lo+Math.random()*(hi-lo);cat.queue=next;}
@@ -492,7 +498,7 @@ const SOUTH=(()=>{try{return /^(Australia|Antarctica|Pacific\/(Auckland|Chatham|
 function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'winter':m<5?'spring':m<8?'summer':'autumn';}
 function dayRand(d){let h=d.getFullYear()*400+d.getMonth()*32+d.getDate();h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^h>>>16)>>>0)/4294967296;}
 function isNight(d){if(NIGHT_FORCE)return true;const h=d.getHours();return h>=20||h<6;}
-function skyKind(d){if(SKY_FORCE)return SKY_FORCE;const s=season(d),r=dayRand(d);
+function skyKind(d){if(SKY_FORCE)return SKY_FORCE;if(gen&&(gen.id==='gen:rain'||gen.id==='gen:window'))return 'rain'; /* play rain and it rains on her desk */const s=season(d),r=dayRand(d);
   if(s==='winter')return r<.45?'snow':r<.6?'rain':'clear';
   if(r<.18)return 'rain';
   return s==='autumn'?'leaves':s==='spring'?'petals':isNight(d)?'fireflies':'clear';}
@@ -503,8 +509,8 @@ function drawSky(t,P,now){const peg=k=>[P.A,P.HI,P.FISH,P.S2][k],kind=skyKind(no
     for(let i=0;i<9;i++){const sx=(i*23+Math.floor(t*(.3+i*.15)))%W;put(W-1-sx,(i*5)%9,dim(i%4?P.HI:P.FISH,i%4?.38:.5));} /* stars, one in four warm */
     const p=moonPhase(now),mx=118,my=4,r=3.4;
     for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){if(dx*dx+dy*dy>r*r)continue;const w=Math.sqrt(r*r-dy*dy),c=Math.cos(2*Math.PI*p)*w,ex=SOUTH?-dx:dx;
-      const lit=p<.5?ex>c-.5:ex<-c+.5,rim=dx*dx+dy*dy>(r-1.2)*(r-1.2);put(mx+dx,my+dy,lit?(rim?dim(P.FISH,.9):P.HI):P.DEEP);}} /* a warm rim on the lit edge */
-  if(kind==='rain')for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(peg(3),.6));put(x+.5,y-1,dim(peg(3),.25));}
+      const lit=p<.5?ex>c-.5:ex<-c+.5,crater=(dx===-1&&dy===-1)||(dx===1&&dy===1)||(dx===2&&dy===-1)||(dx===-1&&dy===2);put(mx+dx,my+dy,lit?(crater?dim(P.HI,.55):P.HI):dim(P.DEEP,.8));}} /* a few craters so it reads as the moon */
+  if(kind==='rain'){const rc=P.PEG?P.PEG[4]:peg(3);for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(rc,.6));put(x+.5,y-1,dim(rc,.25));}} /* rain is blue on the pegboard */
   else if(kind==='snow')for(let i=0;i<(RM.matches?7:14);i++){const y=(t*2.2+i*3.7)%13,x=(i*9.1+Math.sin(t*.8+i)*2.2+W)%W;put(x,y,dim(P.HI,.8));}
   else if(kind==='leaves')for(let i=0;i<(RM.matches?4:8);i++){const y=(t*1.6+i*2.9)%13,sw=Math.sin(t*1.1+i*2),x=((i*16.3+sw*4+t*1.5)%W+W)%W,c=dim(peg([0,2,0,2,1,0,2,0][i]),.85);put(x,y,c);put(x+1,y+(sw>0?1:-1),dim(c,.6));} /* two-dot leaves that tumble as they fall */
   else if(kind==='petals')for(let i=0;i<(RM.matches?5:9);i++){const y=(t*1.3+i*2.1)%13,sw=Math.sin(t*.9+i*1.7),x=((i*14.7+sw*5+t*1.2)%W+W)%W,c=i%3?0xff9ec4:dim(P.C,.7);put(x,y,c);if(sw>.3)put(x+1,y,dim(c,.5));}
@@ -583,10 +589,8 @@ function paintGame(){gameWin.hidden=false;layout();}
 /* ================= Idle fade, keyboard, init ================= */
 let idleT;function wake(){noteActive();document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>document.body.classList.add('idle'),10000);}
 ['pointermove','pointerdown','keydown','touchstart','focusin','scroll','wheel'].forEach(ev=>document.addEventListener(ev,wake,{passive:true}));wake();
-document.addEventListener('keydown',e=>{const typing=/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement&&document.activeElement.tagName);if(typing)return;
-  if(e.key==='m'||e.key==='M'){setMuted(!muted);return;}
-  if(e.key===' '&&unit.getBoundingClientRect().bottom>0&&window.scrollY<unit.offsetTop+unit.offsetHeight/2){e.preventDefault();playKey.click();}
-});
+/* No keyboard shortcuts on purpose: people type in other windows, and a stray key should never stop the music.
+   Every control is still a normal button, so Tab and Enter work for keyboard users. */
 if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.serviceWorker.register('./sw.js').catch(()=>{});}
 paintKeys();paintGame();
 
@@ -631,7 +635,7 @@ const VOL_OFF='M4 0h1v1h-1zM3 1h2v1h-2zM0 2h5v1h-5zM6 2h1v1h-1zM10 2h1v1h-1zM0 3
 /* the floating window's own mute button: shows while something plays, stays lit while muted */
 function paintPipMute(on){if(pipDots){pipDots.style.color=(PALETTES[S.palette]||PALETTES.crt).primary;}if(pipDots)pipDots.querySelectorAll('button').forEach(b=>{const on=b.dataset.pal===S.palette;b.setAttribute('aria-pressed',String(on));drawPalTile(b._cv,b._p,on);});if(!pipMute)return;
   pipMute.style.color=(PALETTES[S.palette]||PALETTES.crt).primary;pipMute.hidden=!(on||muted);pipMute.classList.toggle('muted',muted);pipMute.setAttribute('aria-pressed',String(muted));
-  pipMute.setAttribute('aria-label',muted?'Unmute':'Mute');pipMute.title=muted?'Unmute (M)':'Mute (M)';}
+  pipMute.setAttribute('aria-label',muted?'Unmute':'Mute');pipMute.title=muted?'Unmute':'Mute';}
 function paintFloat(){floatKey.hidden=!(fineDesk.matches&&(canDocPip||canVidPip));const on=!!floatWin||vidPip.on;
   floatKey.setAttribute('aria-pressed',String(on));floatKey.title=on?'Bring her back':'Float: keep her on top of your other windows';}
 if(fineDesk.addEventListener)fineDesk.addEventListener('change',paintFloat);
@@ -654,7 +658,6 @@ async function floatDoc(){
   floatWin=pw;host=pw;restartLoop();
   pw.addEventListener('resize',relayout);
   ['pointermove','pointerdown','keydown'].forEach(ev=>pw.document.addEventListener(ev,noteActive,{passive:true}));
-  pw.document.addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();playKey.click();}if(e.key==='m'||e.key==='M')setMuted(!muted);});
   pw.addEventListener('pagehide',()=>{pipMute=null;pipDots=null;floatNote.before(win,gameWin);floatNote.hidden=true;floatWin=null;host=window;restartLoop();layout();paintFloat();},{once:true});
   layout();paintFloat();}
 function vidFrame(){const g=vidPip.g,w=vidPip.cv.width,h1=Math.round(w/4),h2=Math.round(w*GH/W);g.fillStyle='#050607';g.fillRect(0,0,w,vidPip.cv.height);

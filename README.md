@@ -23,7 +23,7 @@ index.html                 the board and a short introduction
 privacy.html  terms.html  404.html  analytics.js  studio.html
 board.js  board.css        the board: clock, cat, music and sounds, sky, and page-swapping navigation
 site.css                   shared styles
-fonts/                     Fraunces (headlines), Roboto (text), Doto (wordmark); self-hosted, OFL
+fonts/                     Fraunces (headlines), IBM Plex Sans (text), Doto (wordmark); self-hosted, OFL
 manifest.webmanifest  sw.js  icons/   install-as-app and offline
 og.png                     the preview image for shared links
 robots.txt  sitemap.xml  CNAME
@@ -37,7 +37,7 @@ Every page is a complete HTML file with the board at the top. Following a link i
 
 The window button (computers only) floats the board above other apps. Chrome and Edge use Document Picture-in-Picture: the real clock and desk move into the floating window, so the cat stays interactive. Safari gets a video picture-in-picture of the clock and desk. Firefox and phones don't offer it, so the button is hidden there.
 
-Mute works from the floating window too: a speaker button in its corner (Chrome/Edge), M on the keyboard anywhere, or Safari's own pause button. The speaker icon beside the main volume slider shows the same state and unmutes after you bring her back. Mute only lasts for the visit; moving the volume slider also unmutes.
+Mute works from the floating window too: a speaker button in its corner (Chrome/Edge) or Safari's own pause button. The speaker icon beside the main volume slider shows the same state and unmutes after you bring her back. Mute only lasts for the visit; moving the volume slider also unmutes.
 
 ## Sit and the calm sounds
 
@@ -105,3 +105,8 @@ Examples:
 **Studio:** open `/studio.html` (for example https://loaffm.com/studio.html) to set all of this with buttons and menus, see a live preview, and copy the finished address. It isn't linked from the site, is marked noindex and is disallowed in robots.txt, so search engines leave it alone; it remembers your last settings in your own browser.
 
 **OBS:** add a Browser source with that URL, width 1920, height 1080, and tick "Control audio via OBS" so the music goes into the stream. For an uploaded video, record from OBS for as long as you like; the music is composed as it plays, so every recording is different. Don't register the music with YouTube Content ID: generative music can resemble other tracks enough to cause false claims.
+
+
+## No keyboard shortcuts
+
+Deliberately none (no Space, M or Z): people type in other windows, especially after petting her in the floating window, and a stray key must never stop the music or start a sit. All controls are real buttons, so Tab and Enter still work.

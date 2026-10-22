@@ -4,12 +4,14 @@
 /* Fonts, self-hosted (SIL Open Font License; see fonts/LICENSE-*.txt). Nothing loads from Google. */
 @font-face{font-family:'Fraunces';src:url(fonts/fraunces.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
 @font-face{font-family:'Doto';src:url(fonts/doto-900.woff2) format('woff2');font-weight:900;font-display:swap}
-@font-face{font-family:'Roboto';src:url(fonts/roboto-400.woff2) format('woff2');font-weight:400;font-display:swap}
-@font-face{font-family:'Roboto';src:url(fonts/roboto-500.woff2) format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-400.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-400-italic.woff2) format('woff2');font-weight:400;font-style:italic;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-500.woff2) format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-600.woff2) format('woff2');font-weight:600 700;font-display:swap}
 :root{
   --p:#c6c6c6; --on-p:#303030; --p-c:#474747; --on-p-c:#e2e2e2; --s:#c6c6c6; --s-c:#474747; --on-s-c:#e2e2e2; --surf:#141414; --surf-low:#1b1b1b; --surf-c:#1f1f1f; --surf-high:#2a2a2a; --surf-highest:#353535; --on-surf:#e2e2e2; --on-surf-v:#c6c6c6; --outline:#919191; --outline-v:#474747;
   --panel:#050607; --cat:#b8b1a6; --cat-stripe:#6f6961;
-  --font:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif; --display:'Fraunces',Georgia,'Times New Roman',serif; --dots:'Doto','Courier New',monospace;
+  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --display:'Fraunces',Georgia,'Times New Roman',serif; --dots:'Doto','Courier New',monospace;
   --gutter:max(16px,env(safe-area-inset-left,0px)); --wide:1200px; --read:720px;
   color-scheme:dark;
 }
@@ -50,7 +52,8 @@ h3{font-size:18px}
 
 
 /* Articles */
-.article{max-width:var(--read);margin:0 auto;padding:24px var(--gutter) 0}
+.article{max-width:var(--wide);margin:0 auto;padding:32px var(--gutter) 0} /* left-aligned with the board, like the home page */
+.article>*{max-width:68ch}
 .article header{margin-bottom:28px}
 .article .meta{font-size:14px;color:var(--on-surf-v);margin:0}
 .article h2{margin-top:40px}
@@ -92,10 +95,20 @@ h3{font-size:18px}
 .intro{margin-top:32px}
 @media (max-width:700px){.intro{margin-top:24px}}
 
-/* How it works, on the home page: left-aligned with the intro, comfortable line length */
-.info{margin-top:40px}
-.info h2{margin:36px 0 12px}
-.info h2:first-child{margin-top:0}
-.info p,.info li{max-width:68ch;color:var(--on-surf)}
-.info ul{list-style:none;padding:0;margin:0 0 16px}
-.info li{margin-bottom:12px}
+/* The home page reads like a README: full width of the board, plain sections with ruled headings,
+   and the station and display lists as simple two-column tables */
+.page1{max-width:var(--wide);margin:0 auto;padding:0 var(--gutter)}
+.page1 .intro{margin-top:32px}
+.page1 .intro h1{padding-bottom:12px;border-bottom:1px solid var(--outline-v);margin-bottom:16px}
+.page1 .lede{margin:0 0 10px;font-size:17px;color:var(--on-surf);max-width:none}
+.page1 section+section{margin-top:36px}
+.page1 h2{font-size:24px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--outline-v)}
+.page1 p{margin:0 0 12px}
+.page1 .aside{color:var(--on-surf-v);font-size:15px}
+.items{margin:12px 0 14px;display:grid;grid-template-columns:minmax(120px,max-content) 1fr;border-top:1px solid var(--outline-v)}
+.items dt,.items dd{padding:9px 0;border-bottom:1px solid var(--outline-v);margin:0}
+.items dt{font-weight:600;padding-right:28px}
+.items dd{color:var(--on-surf-v)}
+@media (max-width:560px){.items{grid-template-columns:1fr}.items dt{border-bottom:0;padding-bottom:0}.items dd{padding-top:2px}}
+.beats{color:var(--on-surf-v);font-style:italic}
+kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border:1px solid var(--outline-v);border-bottom-width:2px;border-radius:5px;background:var(--surf-c)}

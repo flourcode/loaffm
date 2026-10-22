@@ -3,16 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Loaf FM · a tiny pixel cat and clock radio for your desk</title>
-<meta name="description" content="A free pixel clock with a little cat on the desk who naps, wanders and purrs when you pet her, with lofi music made live in your browser and her own little sky. No account, no download.">
+<title>Loaf FM · Tiny cats and chill</title>
+<meta name="description" content="Loaf FM is a clock radio with a cat living inside it. Lofi music made live in your browser, rain, ocean waves, a fireplace or just the purr. No playlists, no account, no algorithm.">
 <link rel="canonical" href="https://loaffm.com/">
 
 <meta name="theme-color" content="#131313">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Loaf FM">
 <meta property="og:url" content="https://loaffm.com/">
-<meta property="og:title" content="Loaf FM · a tiny pixel cat and clock radio for your desk">
-<meta property="og:description" content="A free pixel clock with a little cat on the desk who naps, wanders and purrs when you pet her, with lofi music made live in your browser and her own little sky. No account, no download.">
+<meta property="og:title" content="Loaf FM · Tiny cats and chill">
+<meta property="og:description" content="Loaf FM is a clock radio with a cat living inside it. Lofi music made live in your browser, rain, ocean waves, a fireplace or just the purr. No playlists, no account, no algorithm.">
 <meta property="og:image" content="https://loaffm.com/og.png">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
@@ -44,7 +44,8 @@
   <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM</a>
 </header>
 <div class="boardwrap">
-<section class="unit" id="unit" aria-label="Loaf FM board">
+<section class="unit" id="unit" aria-label="Loaf FM board" aria-describedby="boardText">
+  <p class="sr" id="boardText"></p>
   <div class="window" id="window">
     <canvas id="bg"></canvas>
     <canvas id="led"></canvas>
@@ -69,47 +70,134 @@
 </section>
 </div>
 <main id="page" class="home-page">
-  <section class="band intro">
-    <h1>A tiny pixel cat that keeps you company while you work.</h1>
-    <p class="lede">Loaf FM is a little clock radio with a cat living inside it. She wanders, naps when it gets late, watches the rain and the snow, and purrs when you pet her. Tune in to one of Loaf FM's own stations, music composed live in your browser that never plays quite the same way twice, or one of her calm sounds (a purr, soft rain, ocean waves, a crackling fire or brown noise), sit with her for twenty quiet minutes, or just leave her running. Free, no account, nothing to install.</p>
+  <div class="band page1">
+  <section class="intro">
+    <h1>Tiny Cats and Chill</h1>
+    <p class="lede">Loaf FM is a clock radio with a cat living inside it.</p>
+    <p class="lede">Put on some music, rain, brown noise, ocean waves, a fireplace or just the purr. Leave it running while you work, study, read, meditate, browse Reddit or go down some random internet rabbit hole.</p>
+    <p class="lede">The music is made live in your browser. No playlists, no outside radio streams, no account.</p>
+    <p class="lede">It's a clock, some sounds and a cat hanging out on your desk.</p>
   </section>
-  <section class="band info" id="how">
-    <h2>How to use it</h2>
-      <ul>
-        <li><strong>Hold on the cat</strong> to pet her. She closes her eyes, purrs, and hearts float up. Keep going long enough and she'll fall asleep.</li>
-        <li><strong>Tap the desk</strong> anywhere to call her over with a soft “pspsps”.</li>
-    <li><strong>Her box</strong> sits at the end of the desk. Now and then she hops in and peeks over the edge; tap the box and she'll come and climb in (tap it again while she's inside and she ducks).</li>
-        <li><strong>Loaf FM's own stations</strong> are composed as they play, right in your browser: <em>Late Shift</em> (warm electric piano and a sparse beat), <em>Rainy Window</em> (keys, a soft lead and rain), <em>CRT Dreams</em> (an analog pad and a slow arpeggio), <em>Sunday Loaf</em> (jazzy chords and brushes, with a purr underneath) and <em>Desert Night</em> (a slow pad, distant bells and crickets). No recordings, samples or third-party streams: everything is composed and synthesised live in your browser.</li>
-    <li><strong>Press play</strong> and her purr starts; it's the sound she's set to on your first visit. Pick one of the stations above, or rain, ocean waves, a fireplace or brown noise; all of them are made right in your browser, so they work offline and never play quite the same way twice. The display shows what's playing, with a little spectrum underneath.</li>
-        <li><strong>Treats:</strong> tap the fish button whenever you like. A fish drops onto the desk, she trots over, eats it and purrs, with a few hearts.</li>
-        <li><strong>Volume and brightness</strong> sit right under the board. The speaker icon (or M) mutes and unmutes.</li>
-        <li><strong>Pick a palette</strong> from the six tiles. Pegs, the default, is a glowing pegboard like the light-up peg toy many of us had as kids: a different colour for every digit, a rainbow desk, and now and then a peg in the wrong place. The others are mostly one colour, like the old displays they're modelled on, each with a warm glint here and there: Teal VFD (a stereo display), Amber (a clock radio), Phosphor (a terminal), Moonlight (for late at night) and Ember (a red LED by the fire).</li>
-        <li><strong>Sit</strong> (the chunky Z) starts twenty quiet minutes, the length many meditation practices use, often twice a day. She curls up and sleeps beside you, the board dims, and the dots along the desk edge light one by one as the time passes. A soft low tone marks the end; then take two unhurried minutes before you get up. When it's over she gets a fish. Press the Z again to stop early.</li>
-        <li><strong>Float</strong> (the window button, on a computer in Chrome, Edge or Safari) puts the board in a small window that stays on top of your other apps. In Chrome and Edge she's fully alive there: you can still pet her and call her over, and a speaker button in the corner mutes the sound (or press M). In Safari the floating window's pause button mutes and unmutes. Close the little window to bring her back.</li>
-        <li><strong>Install it</strong> from your browser's address bar (or "Add to Home Screen" / "Add to Dock") and it opens like an app, without the rest of the website around it.</li>
-      </ul>
-      <p>She has her own little moments too: loafing with her paws tucked in, grooming, a big yawn, glancing about, gazing up at the rain or the stars. She dims and gets sleepy in the evening, and the music sets her tail flicking. If you step away for a while she curls up and dozes; when you come back she yawns, stretches and wanders over.</p>
-      <h2>Her sky</h2>
-      <p>At night the stars come out, along with the real phase of the moon. The season comes from the date: snow in winter, petals in spring, fireflies on summer nights, leaves in autumn. Each day has its own weather too, so some days it rains. None of it needs your location; it's worked out from your device's date and time zone.</p>
 
-      <h2>Make it a desk clock</h2>
-      <p>Got an old tablet in a drawer? Open Loaf FM, add it to the home screen, set the tablet to stay awake while charging, and lean it against a shelf. That's it: a pixel clock with a cat, for free.</p>
-
-      <h2>Where things come from</h2>
-      <ul>
-        <li><strong>Music and sounds:</strong> composed and synthesised live in your browser by Loaf FM's own code. No recordings, no samples, no radio.</li>
-        <li><strong>Fonts:</strong> Fraunces, Roboto and Doto, all under the SIL Open Font License, served from this site.</li>
-        <li><strong>The cat</strong> and the board are ours.</li>
-      </ul>
-
-      <h2>Contact</h2>
-      <p>Questions, ideas, or just a photo of your cat: <a href="mailto:hello@loaffm.com">hello@loaffm.com</a>.</p>
+  <section>
+    <h2>What's the catch?</h2>
+    <p>There isn't one. I like cats and lo-fi music, so I made this.</p>
+    <p>It's free. There are no ads and nothing to sign up for. I use Google Analytics to count visitors; the <a href="privacy.html">privacy page</a> explains what gets collected.</p>
+    <p>If you like Loaf FM, send it to another cat person.</p>
   </section>
+
+  <section>
+    <h2>The cat</h2>
+    <p>She wanders around, loafs, grooms herself, yawns, watches the weather and stares off into space.</p>
+    <p>Leave her alone for a while and she'll fall asleep. Come back and she'll eventually wake up and wander around again.</p>
+    <p><strong>Pet her:</strong> hold on the cat and she'll close her eyes and purr. Keep going and she'll fall asleep.</p>
+    <p><strong>Call her:</strong> tap the desk and you'll hear a quiet “pspsps.”</p>
+    <p><strong>Feed her:</strong> tap the fish. She'll come over, eat it and purr.</p>
+    <p>She has a cardboard box too. Sometimes she gets in on her own. Tap the box to call her over. Tap it again while she's inside and she'll duck down.</p>
+  </section>
+
+  <section>
+    <h2>Pick a station</h2>
+    <p>Loaf FM has five. The music is composed while you listen, so it changes as it plays.</p>
+    <dl class="items">
+      <dt>Late Shift</dt><dd>Warm electric piano and a sparse beat. Good for working late.</dd>
+      <dt>Rainy Window</dt><dd>Soft keys, a little melody and rain. Good for studying, reading or getting something done.</dd>
+      <dt>CRT Dreams</dt><dd>Analog pads, a slow arpeggio and a few electronic blips. A little more retro and synthy.</dd>
+      <dt>Sunday Loaf</dt><dd>Jazz chords, brushes and a quiet purr underneath. The least urgent station.</dd>
+      <dt>Desert Night</dt><dd>Slow pads, distant bells and crickets. Good for reading, meditation or winding down.</dd>
+    </dl>
+    <p>Everything is composed and synthesised in your browser. There are no recordings, samples or third-party radio streams.</p>
+  </section>
+
+  <section>
+    <h2>Or skip the music</h2>
+    <p>There's also purr, rain, ocean waves, fireplace and brown noise.</p>
+    <p>Pick one, set the volume and leave it running.</p>
+  </section>
+
+  <section>
+    <h2>Twenty minutes</h2>
+    <p>Hit the big <strong>Z</strong> for twenty quiet minutes.</p>
+    <p>The cat curls up, the display dims and the dots along the bottom mark the time.</p>
+    <p>There's no guided meditation. Sit quietly, close your eyes, watch the cat or do whatever works for you.</p>
+    <p>A soft tone plays when the twenty minutes are up.</p>
+    <p>The cat gets a fish.</p>
+  </section>
+
+  <section>
+    <h2>Pick a display</h2>
+    <p>There are six.</p>
+    <dl class="items">
+      <dt>Pegs</dt><dd>The default. Colored glowing dots inspired by the light-up peg toys a lot of us had as kids.</dd>
+      <dt>Teal VFD</dt><dd>Like the display on an old stereo.</dd>
+      <dt>Amber</dt><dd>Old clock radio.</dd>
+      <dt>Phosphor</dt><dd>Old computer terminal.</dd>
+      <dt>Moonlight</dt><dd>Cooler and dimmer for late at night.</dd>
+      <dt>Ember</dt><dd>Red LEDs and fireplace glow.</dd>
+    </dl>
+    <p>There's a brightness control under the display if you want to tone it down.</p>
+  </section>
+
+  <section>
+    <h2>Her sky</h2>
+    <p>Stars come out at night and the moon shows its actual phase.</p>
+    <p>Winter gets snow. Spring gets petals. Summer nights get fireflies. Autumn gets falling leaves. Some days it rains.</p>
+    <p>Loaf FM doesn't need your location. It uses the date and time zone already on your device.</p>
+    <p>If you pick Rain or Rainy Window, it'll rain in her sky regardless.</p>
+  </section>
+
+  <section>
+    <h2>Keep her in the corner</h2>
+    <p>On a computer, hit the window button and Loaf FM floats over your other apps.</p>
+    <p>It's useful if you want the clock and cat sitting off to the side while you work, study or browse.</p>
+    <p>In Chrome and Edge you can still pet her and call her over from the floating window.</p>
+  </section>
+
+  <section>
+    <h2>Got an old tablet?</h2>
+    <p>Loaf FM makes a pretty good desk clock.</p>
+    <p>Open it on the tablet, add it to the home screen, set the tablet to stay awake while charging and prop it up somewhere.</p>
+    <p>That's about it.</p>
+  </section>
+
+  <section>
+    <h2>It works offline</h2>
+    <p>You can install Loaf FM from your browser and run it like a small app without the rest of the website around it.</p>
+    <p>Once it's loaded, the cat, clock, stations and sounds work without an internet connection.</p>
+  </section>
+
+  <section>
+    <h2>Nerd stuff</h2>
+    <p>Loaf FM isn't playing a bunch of audio files.</p>
+    <p>The music is generated in real time with the Web Audio API. The synths, drums, bass, chord changes, melodies, rain, waves, fire and purr are made in your browser while you're listening.</p>
+    <p>There are no prerecorded songs, samples, Spotify embeds or internet radio streams.</p>
+    <p>It's procedural, not AI-generated.</p>
+    <p>Once the app is cached, most of it works offline. Your browser is basically the synthesizer.</p>
+    <p>The whole thing is deliberately small, because a clock radio with a cat in it probably shouldn't need 40 MB of JavaScript.</p>
+    <p>There are no keyboard shortcuts, on purpose. You're probably typing in another window, and a stray key shouldn't stop the music.</p>
+    <p>More unnecessary details will probably appear here over time.</p>
+  </section>
+
+  <section>
+    <h2>What's actually in this thing</h2>
+    <dl class="items">
+      <dt>Music and sounds</dt><dd>Generated by Loaf FM's own code in your browser. No recordings, samples or outside radio streams.</dd>
+      <dt>Fonts</dt><dd>Fraunces, IBM Plex Sans and Doto, under the SIL Open Font License.</dd>
+      <dt>The cat and the board</dt><dd>Made for Loaf FM.</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Say hi</h2>
+    <p>Found something broken? Have an idea? Have a good cat picture?</p>
+    <p><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></p>
+  </section>
+  </div>
 </main>
 <footer class="foot">
   <div>
     <p>© 2026 Loaf FM</p>
-    <p class="credits">All music and sounds are made live in your browser.</p>
+    <p class="credits">Music and sounds are generated live in your browser.</p>
   </div>
   <nav aria-label="Footer"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
 </footer>
