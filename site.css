@@ -1,0 +1,101 @@
+/* Loaf FM · shared styles for every page.
+   Colour roles are Material 3 tokens built from the Mono palette. On the home page the board
+   overrides them at runtime with whichever palette the visitor picked. */
+/* Fonts, self-hosted (SIL Open Font License; see fonts/LICENSE-*.txt). Nothing loads from Google. */
+@font-face{font-family:'Fraunces';src:url(fonts/fraunces.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Doto';src:url(fonts/doto-900.woff2) format('woff2');font-weight:900;font-display:swap}
+@font-face{font-family:'Roboto';src:url(fonts/roboto-400.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Roboto';src:url(fonts/roboto-500.woff2) format('woff2');font-weight:500;font-display:swap}
+:root{
+  --p:#c6c6c6; --on-p:#303030; --p-c:#474747; --on-p-c:#e2e2e2; --s:#c6c6c6; --s-c:#474747; --on-s-c:#e2e2e2; --surf:#141414; --surf-low:#1b1b1b; --surf-c:#1f1f1f; --surf-high:#2a2a2a; --surf-highest:#353535; --on-surf:#e2e2e2; --on-surf-v:#c6c6c6; --outline:#919191; --outline-v:#474747;
+  --panel:#050607; --cat:#b8b1a6; --cat-stripe:#6f6961;
+  --font:'Roboto',system-ui,-apple-system,'Segoe UI',sans-serif; --display:'Fraunces',Georgia,'Times New Roman',serif; --dots:'Doto','Courier New',monospace;
+  --gutter:max(16px,env(safe-area-inset-left,0px)); --wide:1200px; --read:720px;
+  color-scheme:dark;
+}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
+  --p:#5e5e5e; --on-p:#ffffff; --p-c:#e2e2e2; --on-p-c:#474747; --s:#5e5e5e; --s-c:#e2e2e2; --on-s-c:#474747; --surf:#fdfdfd; --surf-low:#f3f3f3; --surf-c:#eeeeee; --surf-high:#e8e8e8; --surf-highest:#e2e2e2; --on-surf:#1b1b1b; --on-surf-v:#474747; --outline:#777777; --outline-v:#c6c6c6; --cat:#827a70; --cat-stripe:#5d5851; color-scheme:light}}
+:root.light{color-scheme:light;--cat:#827a70;--cat-stripe:#5d5851}
+
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--surf);color:var(--on-surf);font:400 16px/1.6 var(--font);letter-spacing:.15px;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+a{color:var(--p);text-underline-offset:3px}
+a:hover{text-decoration-thickness:2px}
+img{max-width:100%;height:auto}
+:focus-visible{outline:3px solid var(--s);outline-offset:2px}
+.skip{position:absolute;left:-9999px}
+.skip:focus{left:16px;top:8px;z-index:10;background:var(--surf-c);padding:8px 12px;border-radius:8px}
+
+/* Top bar */
+.top{display:flex;align-items:center;justify-content:space-between;gap:16px;max-width:var(--wide);margin:0 auto;padding:12px var(--gutter);flex-wrap:wrap}
+.brand{white-space:nowrap;display:inline-flex;align-items:center;gap:10px;color:var(--on-surf);text-decoration:none;font:900 25px/1 var(--dots);letter-spacing:.5px}
+.brand svg{width:40px;height:24px;flex:0 0 auto}
+.nav{display:flex;gap:4px;flex-wrap:wrap}
+.nav a{color:var(--on-surf-v);text-decoration:none;font:500 14px/20px var(--font);letter-spacing:.1px;padding:10px 14px;border-radius:20px}
+.nav a:hover{background:color-mix(in srgb,var(--on-surf) 8%,transparent);color:var(--on-surf)}
+.nav a[aria-current="page"]{background:var(--s-c);color:var(--on-s-c)}
+
+/* Sections on the home page */
+.band{max-width:var(--wide);margin:0 auto;padding:0 var(--gutter)}
+h1,h2,h3{line-height:1.2;margin:0 0 12px;font-weight:500}
+h1{font:600 clamp(30px,4.4vw,44px)/1.12 var(--display);letter-spacing:-.4px;font-variation-settings:'SOFT' 60,'opsz' 96}
+h2{font:600 clamp(23px,2.8vw,30px)/1.2 var(--display);letter-spacing:-.2px;font-variation-settings:'SOFT' 60,'opsz' 48}
+h3{font-size:18px}
+.lede{font-size:18px;color:var(--on-surf-v);max-width:62ch;margin:0 0 16px}
+.tips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:20px 0 0;list-style:none}
+.tips li{font:500 13px/18px var(--font);color:var(--on-surf-v);background:var(--surf-c);border:1px solid var(--outline-v);border-radius:8px;padding:7px 12px}
+.tips b{color:var(--on-surf);font-weight:500}
+
+
+
+/* Articles */
+.article{max-width:var(--read);margin:0 auto;padding:24px var(--gutter) 0}
+.article header{margin-bottom:28px}
+.article .meta{font-size:14px;color:var(--on-surf-v);margin:0}
+.article h2{margin-top:40px}
+.article h3{margin-top:28px}
+.article p,.article li{color:var(--on-surf)}
+.article ul,.article ol{padding-left:22px}
+.article li{margin-bottom:6px}
+.table{width:100%;border-collapse:collapse;margin:16px 0;font-size:15px}
+.table th,.table td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--outline-v);vertical-align:top}
+.table th{font-weight:500;color:var(--on-surf-v)}
+
+/* Buttons (M3) */
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 24px;border:0;border-radius:20px;font:500 14px/20px var(--font);letter-spacing:.1px;cursor:pointer;text-decoration:none;position:relative;overflow:hidden}
+.btn.filled{background:var(--p);color:var(--on-p)}
+.btn.tonal{background:var(--s-c);color:var(--on-s-c)}
+.btn.outlined{background:transparent;color:var(--p);box-shadow:inset 0 0 0 1px var(--outline)}
+.btn::before{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s}
+.btn:hover::before{opacity:.08}.btn:active::before{opacity:.1}
+
+/* Footer */
+.foot{max-width:var(--wide);margin:72px auto 0;padding:24px var(--gutter) 40px;border-top:1px solid var(--outline-v);display:flex;flex-wrap:wrap;gap:12px 24px;justify-content:space-between;font-size:14px;color:var(--on-surf-v)}
+.foot nav{display:flex;flex-wrap:wrap;gap:4px 20px}
+.foot a{color:var(--on-surf-v)}
+
+@media (max-width:560px){
+  .top{padding-top:8px;padding-bottom:8px;flex-wrap:nowrap;gap:8px}
+  .brand{font-size:21px;gap:8px}.brand svg{width:33px;height:20px}
+  .nav{flex-wrap:nowrap;gap:0}
+  .nav a{padding:8px 9px;font-size:14px}
+}
+@media (max-width:380px){.brand{font-size:19px}.nav a{padding:8px 7px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+.intro h1{margin-bottom:10px}
+.credits{margin:6px 0 0;font-size:13px}
+.foot p{margin:0}
+
+
+.intro{margin-top:32px}
+@media (max-width:700px){.intro{margin-top:24px}}
+
+/* How it works, on the home page: left-aligned with the intro, comfortable line length */
+.info{margin-top:40px}
+.info h2{margin:36px 0 12px}
+.info h2:first-child{margin-top:0}
+.info p,.info li{max-width:68ch;color:var(--on-surf)}
+.info ul{list-style:none;padding:0;margin:0 0 16px}
+.info li{margin-bottom:12px}

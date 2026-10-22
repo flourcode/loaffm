@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Loaf FM Studio</title>
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="stylesheet" href="site.css">
+<style>
+  /* Loaf FM Studio: builds broadcast-mode addresses for OBS and recordings. Not linked from the site, not indexed. */
+  body{background:var(--surf);color:var(--on-surf)}
+  .studio{max-width:1320px;margin:0 auto;padding:24px var(--gutter) 48px;display:grid;grid-template-columns:minmax(300px,380px) minmax(0,1fr);gap:28px;align-items:start}
+  @media (max-width:900px){.studio{grid-template-columns:1fr}}
+  .head{grid-column:1/-1;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .head h1{font:900 24px/1 var(--dots);margin:0;letter-spacing:.5px}
+  .head p{margin:0;color:var(--on-surf-v);font-size:14px}
+  .panel{background:var(--surf-c);border-radius:12px;padding:18px;display:grid;gap:18px}
+  fieldset{border:0;margin:0;padding:0;display:grid;gap:8px;min-width:0}
+  legend,.lab{font:500 12px/16px var(--font);letter-spacing:.5px;text-transform:uppercase;color:var(--on-surf-v);padding:0;margin-bottom:6px}
+  .seg{display:inline-flex;border:1px solid var(--outline);border-radius:20px;overflow:hidden;width:max-content}
+  .seg label{padding:8px 16px;font:500 14px/20px var(--font);cursor:pointer;border-left:1px solid var(--outline)}
+  .seg label:first-child{border-left:0}
+  .seg input{position:absolute;opacity:0;pointer-events:none}
+  .seg label:has(input:checked){background:var(--s-c);color:var(--on-s-c)}
+  .seg label:has(input:focus-visible){outline:3px solid var(--s);outline-offset:-3px}
+  select,input[type=text],input[type=number]{font:400 15px/22px var(--font);color:var(--on-surf);background:var(--surf);border:1px solid var(--outline);border-radius:8px;padding:8px 10px;width:100%}
+  input[type=number]{width:84px}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .chk{display:flex;gap:8px;align-items:center;font-size:15px;cursor:pointer}
+  .chk input[type=checkbox]{width:18px;height:18px;accent-color:var(--p)}
+  .chk input[type=number]{padding:4px 8px;width:72px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:4px 12px}
+  .hint{font-size:13px;color:var(--on-surf-v);margin:0}
+  input[type=range]{width:100%;accent-color:var(--p)}
+  .out{display:grid;gap:12px}
+  .preview{position:relative;width:100%;aspect-ratio:16/9;background:#0b0b0c;border-radius:10px;overflow:hidden;box-shadow:0 0 0 1px var(--outline-v)}
+  .preview iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+  .url{font:400 13px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all;background:var(--surf-c);border-radius:8px;padding:10px 12px;user-select:all}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  .obs{background:var(--surf-c);border-radius:12px;padding:14px 18px;font-size:14px;color:var(--on-surf-v)}
+  .obs ol{margin:6px 0 0;padding-left:20px}
+  .obs b{color:var(--on-surf);font-weight:500}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="studio">
+  <div class="head">
+    <h1>Loaf FM Studio</h1>
+    <p>Set up broadcast mode, copy the address into OBS, or open it full screen to record.</p>
+  </div>
+
+  <form class="panel" id="f" autocomplete="off">
+    <fieldset>
+      <legend>Mode</legend>
+      <div class="seg" role="radiogroup">
+        <label><input type="radio" name="mode" value="video" checked>Uploaded video</label>
+        <label><input type="radio" name="mode" value="live">Livestream</label>
+      </div>
+      <p class="hint" id="modeHint"></p>
+    </fieldset>
+
+    <fieldset>
+      <legend>Station</legend>
+      <select name="station" id="station"></select>
+      <label class="chk"><input type="checkbox" name="rotateOn" id="rotateOn">Change station every <input type="number" name="rotate" id="rotate" min="5" max="600" step="5" value="60"> minutes</label>
+      <div class="grid2" id="rotList" hidden></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Palette</legend>
+      <select name="palette" id="palette">
+        <option value="pegs">Pegs</option><option value="teal">Teal VFD</option><option value="amber">Amber</option>
+        <option value="crt">Phosphor</option><option value="moon">Moonlight</option><option value="ember">Ember</option>
+      </select>
+    </fieldset>
+
+    <fieldset id="tzBox">
+      <legend>Time zone (livestream)</legend>
+      <select name="tz" id="tz"></select>
+      <input type="text" name="tzCustom" id="tzCustom" placeholder="Any IANA zone, e.g. Europe/Berlin" hidden>
+      <div class="row"><span class="lab" style="margin:0">Label</span><input type="text" name="label" id="label" maxlength="6" placeholder="auto" style="width:110px"></div>
+    </fieldset>
+
+    <fieldset>
+      <legend>Volume <span id="volOut"></span></legend>
+      <input type="range" name="vol" id="vol" min="0" max="1" step="0.05" value="0.8">
+    </fieldset>
+
+    <fieldset>
+      <legend>Extras</legend>
+      <div class="seg" role="radiogroup" aria-label="Case">
+        <label><input type="radio" name="case" value="dark" checked>Dark case</label>
+        <label><input type="radio" name="case" value="light">Light case</label>
+      </div>
+      <label class="chk"><input type="checkbox" name="treats" id="treats" checked>A treat drops now and then</label>
+      <label class="chk"><input type="checkbox" name="dim" id="dim" checked>Dim in the evening</label>
+    </fieldset>
+
+    <fieldset>
+      <legend>Address base</legend>
+      <input type="text" name="base" id="base">
+      <p class="hint">Leave as is to use this site. Change to https://loaffm.com/ if you opened the studio somewhere else.</p>
+    </fieldset>
+  </form>
+
+  <section class="out" aria-label="Output">
+    <div class="preview"><iframe id="pv" title="Preview" allow="autoplay"></iframe></div>
+    <div class="row">
+      <label class="chk"><input type="checkbox" id="pvSound">Preview with sound</label>
+    </div>
+    <div class="url" id="url"></div>
+    <div class="btns">
+      <button class="btn filled" type="button" id="copy">Copy address</button>
+      <button class="btn tonal" type="button" id="open">Open in a new window</button>
+      <button class="btn outlined" type="button" id="reset">Reset</button>
+    </div>
+    <div class="obs">
+      <b>In OBS:</b>
+      <ol>
+        <li>Add a <b>Browser</b> source and paste the address.</li>
+        <li>Set width <b>1920</b> and height <b>1080</b>.</li>
+        <li>Tick <b>Control audio via OBS</b> so the music goes into the stream or recording.</li>
+      </ol>
+      <p class="hint" style="margin-top:8px">To record without OBS, open it in a new window, press F11 (Ctrl+Cmd+F on a Mac) for full screen, and click once if it asks to start the sound.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  const STATIONS=[['late','Late Shift','88.3'],['window','Rainy Window','91.7'],['crt','CRT Dreams','94.1'],['sunday','Sunday Loaf','97.5'],['desert','Desert Night','102.9'],
+    ['purr','Purr','89.9'],['rain','Rain','90.5'],['ocean','Ocean','93.3'],['fire','Fireplace','99.1'],['brown','Brown noise','100.7']];
+  const ZONES=[['America/Los_Angeles','Pacific (PT)'],['America/Denver','Mountain (MT)'],['America/Chicago','Central (CT)'],['America/New_York','Eastern (ET)'],
+    ['Europe/London','London'],['Europe/Berlin','Central Europe'],['Asia/Tokyo','Tokyo'],['Australia/Sydney','Sydney'],['UTC','UTC'],['custom','Other…']];
+  const KEY='loafFMStudio';
+  const $=id=>document.getElementById(id),f=$('f');
+  const st=$('station'),og1=document.createElement('optgroup'),og2=document.createElement('optgroup');og1.label='Loaf FM';og2.label='Calm';
+  STATIONS.forEach(([k,n,fq],i)=>{const o=new Option(n+'  ·  '+fq,k);(i<5?og1:og2).appendChild(o);
+    const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<5?' checked':'')+'> '+n;$('rotList').appendChild(l);});
+  st.append(og1,og2);
+  ZONES.forEach(([v,n])=>$('tz').appendChild(new Option(n,v)));
+  const DEF={mode:'video',station:'late',rotateOn:false,rotate:60,palette:'pegs',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,case:'dark',treats:true,dim:true,base:new URL('./',location.href).href,rot:['late','window','crt','sunday','desert']};
+  let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
+
+  function toForm(){f.mode.value=cfg.mode;st.value=cfg.station;$('rotateOn').checked=cfg.rotateOn;$('rotate').value=cfg.rotate;$('palette').value=cfg.palette;
+    $('tz').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tz:'custom';$('tzCustom').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tzCustom:cfg.tz;$('label').value=cfg.label;
+    $('vol').value=cfg.vol;f.case.value=cfg.case;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('base').value=cfg.base;
+    STATIONS.forEach(([k])=>{f['rot_'+k].checked=cfg.rot.includes(k);});}
+  function fromForm(){cfg.mode=f.mode.value;cfg.station=st.value;cfg.rotateOn=$('rotateOn').checked;cfg.rotate=Math.max(5,+$('rotate').value||60);cfg.palette=$('palette').value;
+    cfg.tz=$('tz').value==='custom'?$('tzCustom').value.trim():$('tz').value;cfg.tzCustom=$('tzCustom').value.trim();cfg.label=$('label').value.trim();
+    cfg.vol=+$('vol').value;cfg.case=f.case.value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.base=$('base').value.trim()||DEF.base;
+    cfg.rot=STATIONS.map(([k])=>k).filter(k=>f['rot_'+k].checked);try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}}
+
+  function address(preview){const p=new URLSearchParams();p.set('broadcast',cfg.mode);
+    if(cfg.rotateOn&&cfg.rot.length>1){p.set('stations',cfg.rot.join(','));p.set('rotate',cfg.rotate);p.set('station',cfg.rot.includes(cfg.station)?cfg.station:cfg.rot[0]);}else p.set('station',cfg.station);
+    p.set('palette',cfg.palette);
+    if(cfg.mode==='live'){if(cfg.tz)p.set('tz',cfg.tz);if(cfg.label)p.set('label',cfg.label);}
+    p.set('vol',preview&&!$('pvSound').checked?'0':String(cfg.vol));
+    if(cfg.case==='light')p.set('case','light');if(!cfg.treats)p.set('treats','0');if(!cfg.dim)p.set('dim','0');
+    let base=cfg.base;try{base=new URL(base,location.href).href;}catch(e){base=DEF.base;}return base.replace(/[?#].*$/,'')+'?'+p.toString().replace(/%2C/g,',').replace(/%2F/g,'/');}
+
+  let pvT,lastPv='';
+  function render(){fromForm();const live=cfg.mode==='live';$('tzBox').hidden=!live;$('tzCustom').hidden=$('tz').value!=='custom';$('rotList').hidden=!cfg.rotateOn;
+    $('modeHint').textContent=live?'Shows the real time on the small line, in the time zone below.':'No clock or date: the big digits show the station’s frequency.';
+    $('volOut').textContent=Math.round(cfg.vol*100);const url=address(false);$('url').textContent=url;
+    clearTimeout(pvT);pvT=setTimeout(()=>{const pv=address(true);if(pv!==lastPv){lastPv=pv;$('pv').src=pv;}},350);}
+
+  toForm();render();
+  f.addEventListener('input',render);f.addEventListener('change',render);$('pvSound').addEventListener('change',render);
+  $('copy').addEventListener('click',async()=>{const u=address(false);try{await navigator.clipboard.writeText(u);}catch(e){const r=document.createRange();r.selectNodeContents($('url'));getSelection().removeAllRanges();getSelection().addRange(r);document.execCommand('copy');}
+    const b=$('copy'),t=b.textContent;b.textContent='Copied';setTimeout(()=>b.textContent=t,1400);});
+  $('open').addEventListener('click',()=>window.open(address(false),'loafBroadcast','width=1920,height=1080'));
+  $('reset').addEventListener('click',()=>{cfg=Object.assign({},DEF);toForm();render();});
+})();
+</script>
+</body>
+</html>
