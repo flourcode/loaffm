@@ -34,15 +34,38 @@ const rgb=(r,g,b)=>(r<<16)|(g<<8)|b,hexInt=h=>parseInt(h.slice(1),16),R=c=>c>>16
 function dim(c,k){return rgb(Math.round(R(c)*k),Math.round(G(c)*k),Math.round(B(c)*k));}
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 const ascii=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[‘’]/g,"'").replace(/[“”]/g,'"').replace(/–|—/g,'-').replace(/·/g,'·').replace(/[^\x20-\x7e·°]/g,'').replace(/\s+/g,' ').trim();
-function wrap(s,area){const words=s.split(' ');const lines=[];let cur='';for(const w of words){const cand=cur?cur+' '+w:w;if(textW(cand,'big')<=area)cur=cand;else{if(cur)lines.push(cur);cur=w;}}if(cur)lines.push(cur);return lines;}
+function wrap(s,area,font='big'){const words=s.split(' ');const lines=[];let cur='';for(const w of words){const cand=cur?cur+' '+w:w;if(textW(cand,font)<=area)cur=cand;else{if(cur)lines.push(cur);cur=w;}}if(cur)lines.push(cur);return lines;}
 
 /* ================= State ================= */
 const locale=navigator.language||'en-US';
 const H24=(()=>{try{return !new Intl.DateTimeFormat(locale,{hour:'numeric'}).resolvedOptions().hour12;}catch(e){return false;}})();
 const UNIT=/US|LR|MM/.test(locale.split('-')[1]||'')?'F':'C';
-const DEFAULTS={palette:'pegs',brightness:1,volume:0.7,station:'gen:purr',stationName:'Purr'};
+const DEFAULTS={palette:'pegs',brightness:1,volume:0.7,station:'gen:purr',stationName:'Purr',tapes:[]};
 let S=Object.assign({},DEFAULTS);
 try{const saved=JSON.parse(localStorage.getItem(STORE)||'null');if(saved&&typeof saved==='object')Object.assign(S,saved);}catch(e){}
+/* ================= Mixtapes =================
+   A mixtape is a small recipe for one of Loaf FM's stations: which station it starts from, mood, drums, weather, tempo,
+   busyness and tone, plus a name and a label colour. It's a few numbers, so it saves in the browser and fits in a link. */
+const TAPE_BASES=['late','window','crt','sunday','desert'],TAPE_COLORS=['#e2504a','#e8902f','#e7c74e','#5ed363','#58aaf5','#e064c0','#f1e7cf'],TAPE_MAX=10;
+let draft=null; /* the tape being made, before it's saved */
+const clampInt=(v,lo,hi,d)=>{v=Math.round(+v);return Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):d;};
+function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n||'').replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,24)||'Untitled mixtape';
+  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,TAPE_COLORS.length-1,2),b:clampInt(t.b,0,4,1),m:clampInt(t.m,0,2,0),d:clampInt(t.d,0,2,1),w:clampInt(t.w,0,4,0),t:clampInt(t.t,0,100,40),u:clampInt(t.u,0,100,30),o:clampInt(t.o,0,100,45),f:clampInt(t.f,879,1079,0)||randFreq()};}
+function randFreq(){const taken=new Set(Object.values(FREQ_FIXED).map(f=>Math.round(f*10)));let f;do{f=879+2*Math.floor(Math.random()*101);}while(taken.has(f));return f;} /* a free spot on the dial, odd tenths like real FM */
+const FREQ_FIXED={late:88.3,window:91.7,crt:94.1,sunday:97.5,desert:102.9,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
+S.tapes=(Array.isArray(S.tapes)?S.tapes:[]).map(cleanTape).filter(t=>t&&t.id).slice(0,TAPE_MAX);
+function tapeOf(id){if(typeof id!=='string'||!id.startsWith('tape:'))return null;return id==='tape:draft'?draft:S.tapes.find(t=>'tape:'+t.id===id)||null;}
+function tapeStyle(tp){tp=tp||cleanTape({});const bk=TAPE_BASES[tp.b],st=Object.assign({},STYLES['gen:'+bk]);
+  st.prog=['warm','minor','jazz'][tp.m];if(bk==='desert'&&tp.m===1)st.prog='drone';
+  st.drums=['none','brush',bk==='crt'?'four':'sparse'][tp.d];st.hats=tp.d===2?(bk==='crt'?.5:.25):0;
+  const lo=56+tp.t*.28;st.bpm=[lo,lo+3];st.mel=.08+tp.u/100*.5;st.blips=bk==='crt'?.3+tp.u/100*1.2:0;
+  st.lp=2000+tp.o*20;st.hiss=1.3-tp.o/100*.9;
+  st.rain=tp.w===1?.5:0;st.waves=tp.w===2?.45:0;st.fire=tp.w===3?.35:0;st.purr=tp.w===4?.2:0;st.crickets=bk==='desert'?1:0;return st;}
+function levelOf(id){if(GEN_LEVEL[id]!=null)return GEN_LEVEL[id];const tp=tapeOf(id);return tp?GEN_LEVEL['gen:'+TAPE_BASES[tp.b]]:.8;}
+function freqOf(id){if(FREQ[id])return FREQ[id];const tp=tapeOf(id);return tp?(tp.f/10).toFixed(1):'88.3';} /* every tape keeps its own spot on the dial, chosen when it's made */
+function encodeTape(t){const j=JSON.stringify([1,t.n,t.c,t.b,t.m,t.d,t.w,t.t,t.u,t.o,t.f]);return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function decodeTape(s){try{const a=JSON.parse(decodeURIComponent(escape(atob(String(s).replace(/-/g,'+').replace(/_/g,'/')))));if(!Array.isArray(a)||a[0]!==1)return null;
+  return cleanTape({n:a[1],c:a[2],b:a[3],m:a[4],d:a[5],w:a[6],t:a[7],u:a[8],o:a[9],f:a[10]});}catch(e){return null;}}
 function save(){if(BC)return;try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}} /* broadcast mode never changes your own saved settings */
 /* ================= Broadcast mode (for YouTube and streaming software) =================
    ?broadcast=video   for uploaded videos: no clock or date (they'd be wrong later); the display shows the station's frequency
@@ -57,7 +80,7 @@ const ST_KEYS={late:'gen:late',window:'gen:window',crt:'gen:crt',sunday:'gen:sun
 const FREQ={'gen:late':'88.3','gen:window':'91.7','gen:crt':'94.1','gen:sunday':'97.5','gen:desert':'102.9','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
 if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(BC.tz)new Intl.DateTimeFormat('en-US',{timeZone:BC.tz});}catch(e){BC.tz='America/Los_Angeles';}
   BC.list=(BCQ.get('stations')||'').split(',').map(k=>ST_KEYS[k.trim()]).filter(Boolean);BC.rotate=Math.max(0,+BCQ.get('rotate')||0);
-  const first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:late';S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');
+  let first=ST_KEYS[BCQ.get('station')]||BC.list[0]||'gen:late';if(BCQ.get('tape')){const tp=decodeTape(BCQ.get('tape'));if(tp){draft=tp;first='tape:draft';}}S.station=first;if(BCQ.get('palette'))S.palette=BCQ.get('palette');
   if(BCQ.get('vol'))S.volume=Math.max(0,Math.min(1,+BCQ.get('vol')));BC.treats=BCQ.get('treats')!=='0';
   document.documentElement.classList.add('broadcast');document.documentElement.dataset.theme=BCQ.get('case')==='light'?'light':'dark';}
 /* the time in the broadcast's time zone, as a Date whose local fields read in that zone (worked out once a second) */
@@ -171,7 +194,7 @@ const STYLES={
   'gen:sunday':{phrase:'approach',bpm:[74,78],swing:.2, prog:'jazz', bars:2,keys:'ep',pad:.3,bass:1.1,drums:'brush',hats:0,melody:'ep',mel:.35,hiss:.8,lp:3000,rev:.22,purr:.18,level:1},
   'gen:desert':{phrase:'wide',bpm:[58,62],swing:0,  prog:'drone',bars:4,keys:'none',pad:1,bass:.7,drums:'none',hats:0,melody:'bell',mel:.35,hiss:.5,lp:2600,rev:.4,crickets:1,level:1}};
 function makeVerb(a,sec){const n=Math.round(a.sampleRate*sec),b=a.createBuffer(2,n,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);let lp=0;for(let i=0;i<n;i++){lp=lp*.7+(Math.random()*2-1)*.3;d[i]=lp*Math.pow(1-i/n,2.6);}}const v=a.createConvolver();v.buffer=b;return v;}
-function music(a,dest,id){const st=STYLES[id],white=makeNoise(a,6,'white');
+function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'white');let hg=null;
   /* the signal chain: everything into a warm low-pass and a gentle tape saturation, with a soft room on a send */
   const bus=a.createGain();bus.gain.value=st.level;const warm=a.createBiquadFilter();warm.type='lowpass';warm.frequency.value=st.lp;warm.Q.value=.5;
   const sat=a.createWaveShaper();const cv=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;cv[i]=Math.tanh(1.6*x)/Math.tanh(1.6);}sat.curve=cv;
@@ -211,10 +234,12 @@ function music(a,dest,id){const st=STYLES[id],white=makeNoise(a,6,'white');
   const cricket=(t)=>{const f=rnd(4300,4900),n=2+Math.floor(Math.random()*3),pan=rnd(-.8,.8);for(let i=0;i<n;i++){const tt=t+i*.11,o=a.createOscillator(),am=a.createOscillator(),ag=a.createGain(),g=a.createGain();o.frequency.value=f;am.frequency.value=rnd(16,20);
     am.connect(ag.gain);ag.gain.value=0;g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(.004,tt+.025);g.gain.linearRampToValueAtTime(0,tt+.08);o.connect(ag).connect(g);out(g,pan,.6);o.start(tt);am.start(tt);o.stop(tt+.09);am.stop(tt+.09);}};
   /* bed layers: tape hiss, and for some stations rain or a purr underneath */
-  if(st.hiss){const h=a.createBufferSource();h.buffer=white;h.loop=true;const hf=a.createBiquadFilter();hf.type='bandpass';hf.frequency.value=5000;hf.Q.value=.5;const hg=a.createGain();hg.gain.value=.006*st.hiss;h.connect(hf).connect(hg).connect(dest);h.start();srcs.push(h);}
+  if(st.hiss){const h=a.createBufferSource();h.buffer=white;h.loop=true;const hf=a.createBiquadFilter();hf.type='bandpass';hf.frequency.value=5000;hf.Q.value=.5;hg=a.createGain();hg.gain.value=.006*st.hiss;h.connect(hf).connect(hg).connect(dest);h.start();srcs.push(h);}
   const layers=[];const layerBus=g=>{const lg=a.createGain();lg.gain.value=g;lg.connect(dest);return lg;};
   if(st.rain){const r=SOUNDS['gen:rain'](a,layerBus(st.rain));srcs.push(...r.src);layers.push(r);}
   if(st.purr){const p=SOUNDS['gen:purr'](a,layerBus(st.purr));srcs.push(...p.src);layers.push(p);}
+  if(st.waves){const w=SOUNDS['gen:waves'](a,layerBus(st.waves));srcs.push(...w.src);layers.push(w);}
+  if(st.fire){const f=SOUNDS['gen:fire'](a,layerBus(st.fire));srcs.push(...f.src);layers.push(f);}
   /* the conductor */
   const key=48+choose([0,2,3,5,7,8,10]);let bpm=rnd(...st.bpm),beat=60/bpm,t=a.currentTime+.4,prog=choose(PROGS[st.prog]),ci=0,bar=0,section='intro',secLeft=2,phrases=0,prevV=null,kickPat=choose([[0,10],[0,7,10],[0,10,14]]),melodyRest=0;
   const voice=(root,type)=>{let ns=CH[type].map(i=>key+root+i);ns=ns.map(n=>{while(n<53)n+=12;while(n>71)n-=12;return n;}).sort((x,y)=>x-y);
@@ -260,13 +285,15 @@ function music(a,dest,id){const st=STYLES[id],white=makeNoise(a,6,'white');
     if(st.blips&&Math.random()<.12)blip(sw(choose([3,7,11,15])),key+choose(PENT)+36);
     if(st.crickets&&Math.random()<.25)cricket(b0+rnd(0,full/st.bars));
     bar++;if(bar%st.bars===0){ci=(ci+1)%prog.length;if(ci===0){secLeft--;if(secLeft<=0)nextSection();}}};
-  return {src:srcs,tick(until){for(const l of layers)l.tick&&l.tick(until);while(t<until){barSlot(t);t+=4*beat;}}};}
-for(const s of MUSIC)SOUNDS[s.id]=(a,dest)=>music(a,dest,s.id);
+  return {src:srcs,tick(until){for(const l of layers)l.tick&&l.tick(until);while(t<until){barSlot(t);t+=4*beat;}},
+    update(ns){const oldProg=st.prog;Object.assign(st,ns);bpm=(ns.bpm[0]+ns.bpm[1])/2;beat=60/bpm; /* tempo, busyness, tone, drums and mood change live while it plays */
+      warm.frequency.setTargetAtTime(st.lp,a.currentTime,.5);if(hg)hg.gain.setTargetAtTime(.006*st.hiss,a.currentTime,.5);if(st.prog!==oldProg)prog=choose(PROGS[st.prog]);}};}
+for(const s of MUSIC)SOUNDS[s.id]=(a,dest)=>music(a,dest,STYLES[s.id]);
 
 function genStart(id){genStop(true);const a=ensureAudio();const master=a.createGain();master.gain.value=0;const an=a.createAnalyser();an.fftSize=64;an.smoothingTimeConstant=.8;
   master.connect(an);an.connect(a.destination);const g={id,master,an,src:[],timers:[]};
-  const snd=SOUNDS[id](a,master);g.src.push(...snd.src);if(snd.tick){snd.tick(a.currentTime+8);g.timers.push(setInterval(()=>snd.tick(a.currentTime+8),1000));}
-  master.gain.setValueAtTime(0,a.currentTime);master.gain.linearRampToValueAtTime(vol()*GEN_LEVEL[id],a.currentTime+2);gen=g;dirty=true;paintKeys();}
+  const snd=(SOUNDS[id]||((a,d)=>music(a,d,tapeStyle(tapeOf(id)))))(a,master);g.snd=snd;g.src.push(...snd.src);if(snd.tick){snd.tick(a.currentTime+8);g.timers.push(setInterval(()=>snd.tick(a.currentTime+8),1000));}
+  master.gain.setValueAtTime(0,a.currentTime);master.gain.linearRampToValueAtTime(vol()*levelOf(id),a.currentTime+2);gen=g;dirty=true;paintKeys();}
 function genStop(quick){if(!gen)return;const g=gen;gen=null;g.timers.forEach(clearInterval);try{const a=actx;g.master.gain.cancelScheduledValues(a.currentTime);g.master.gain.setValueAtTime(g.master.gain.value,a.currentTime);
     g.master.gain.linearRampToValueAtTime(0,a.currentTime+(quick?.15:.8));setTimeout(()=>{g.src.forEach(s=>{try{s.stop();}catch(e){}});g.master.disconnect();},quick?250:1000);}catch(e){}dirty=true;paintKeys();}
 function stationName(){return S.stationName||'Radio';}
@@ -285,14 +312,14 @@ let boardTextLast='';function boardText(now){const el=document.getElementById('b
 function currentCard(){if(BC)return {k:'bc'+S.station,label:'LOAF FM',text:stationName()};if(tuning)return {k:'tune',label:tuneFreq()+' FM',text:'',tune:true};const sp=sitPhase();
   if(sp&&sp.ph==='sit')return {k:'sit',label:'SITTING',text:sp.left+(sp.left===1?' minute':' minutes')};
   if(sp&&sp.ph==='rest')return {k:'rest',label:'REST',text:'no hurry'};
-  return playing()?{k:muted?'mute':'radio',label:muted?'MUTED':(FREQ[gen&&gen.id]||'88.3')+' FM',lamp:!muted,text:stationName()}:{k:'cat',label:'LOAFIE',text:catWords()};}
+  return playing()?{k:muted?'mute':'radio',label:muted?'MUTED':freqOf(gen&&gen.id)+' FM',lamp:!muted,text:stationName()}:{k:'cat',label:'LOAFIE',text:catWords()};}
 
 /* ================= The window ================= */
 const flash={msg:'',until:0};function say(m){flash.msg=ascii(m).toUpperCase().slice(0,60);flash.until=Date.now()+4000;}
 function draw(t,now){fb.fill(-1);const P=pal();
   if(R(P.BG)+G(P.BG)+B(P.BG)>0)rect(0,0,W,H,dim(P.BG,.6));
   /* left: the clock */
-  let ck=clock(now);if(BC){const f=FREQ[S.station]||'88.3';ck={s:f,ap:'FM',date:BC.mode==='live'?(clock(now).s+' '+clock(now).ap+' '+tzLabel()).trim():'STEREO'};}
+  let ck=clock(now);if(BC){const f=freqOf(S.station);ck={s:f,ap:'FM',date:BC.mode==='live'?(clock(now).s+' '+clock(now).ap+' '+tzLabel()).trim():'STEREO'};}
   const tw=textW(ck.s,'big',2);text(ck.s,3,4,'big',P.C,2);let right=3+tw;
   if(P.DIG){let cx=3,d=ck.s.replace(/\D/g,'').length;for(const ch of ck.s){const w=(glyph(ch,'big').length+1)*2;if(/\d/.test(ch)){d--;const c=P.DIG[(P.DIG.length-1-d%P.DIG.length+P.DIG.length)%P.DIG.length];
     for(let y=4;y<4+FH.big*2;y++)for(let x=cx;x<cx+w&&x<W;x++)if(fb[y*W+x]===P.C)fb[y*W+x]=c;}cx+=w;}} /* each digit its own colour; the colon stays clear */
@@ -311,6 +338,7 @@ function draw(t,now){fb.fill(-1);const P=pal();
     {const sl=sleepLeft(),right=sl?'SLEEP '+sl:(card.lamp||card.tune)?'STEREO':'';if(right&&!BC){const w=textW(right,'small'),rx=W-2-w;if(rx>x0+textW(card.label||'','small')+3)text(right,rx,4,'small',sl?P.S2:card.tune?dim(P.A,.35+.3*Math.random()):P.A);}} /* the STEREO lamp lights when a station locks in */
     clip=[x0,W];
     if(canWrap)lines.forEach((l,i)=>text(l,x0,(card.label?11:(lines.length===1?12:6))+i*9,'big',card.flash?P.A:P.C));
+    else if(scroll&&card.k!=='cat'&&wrap(card.text,area,'small').length<=3){wrap(card.text,area,'small').forEach((l,i)=>text(l,x0,(card.label?11:6)+i*7,'small',P.C));twoLines=true;} /* a long station or tape name drops to the small letters rather than crawling */
     else if(scroll){const off=Math.round(clamp((el-lead)*speed,0,tw2-area));text(card.text,x0-off,11,'big',P.C);}
     else text(card.text,x0,11,'big',card.flash?P.A:P.C);
     clip=null;
@@ -369,7 +397,7 @@ const stationEl=$('station');
 function setStation(s){const from=S.station,was=!!gen;S.station=s.id;S.stationName=s.name;save();dirty=true;fillStations();if(was){if(from!==s.id&&!BC)tuneTo(from,s.id);else playRadio();}}
 /* Changing station while one plays: the dial rolls through the frequencies in between with a breath of FM static, then the new station fades in */
 let tuning=null;
-function tuneTo(from,to){genStop(true);const f0=parseFloat(FREQ[from]||'88.3'),f1=parseFloat(FREQ[to]||'88.3'),dur=Math.min(1.1,.45+Math.abs(f1-f0)*.05);
+function tuneTo(from,to){genStop(true);const f0=parseFloat(freqOf(from)),f1=parseFloat(freqOf(to)),dur=Math.min(1.1,.45+Math.abs(f1-f0)*.05);
   tuning={f0,f1,t0:performance.now(),dur:dur*1000};dirty=true;staticBurst(dur);
   setTimeout(()=>{if(tuning&&tuning.f1===f1){tuning=null;dirty=true;if(S.station===to)genStart(to);}},dur*1000);}
 function tuneFreq(){if(!tuning)return null;const q=Math.min(1,(performance.now()-tuning.t0)/tuning.dur),e=q<.5?2*q*q:1-Math.pow(-2*q+2,2)/2;return (Math.round((tuning.f0+(tuning.f1-tuning.f0)*e)*5)/5).toFixed(1);}
@@ -377,13 +405,100 @@ function staticBurst(dur){if(muted)return;try{const a=ensureAudio(),t=a.currentT
   bp.frequency.setValueAtTime(1200,t);bp.frequency.linearRampToValueAtTime(2600,t+dur*.5);bp.frequency.linearRampToValueAtTime(1500,t+dur);const g=a.createGain(),lv=.05*vol();
   g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(lv,t+.06);g.gain.setValueAtTime(lv*.8,t+dur*.6);g.gain.linearRampToValueAtTime(0,t+dur);s.connect(bp).connect(g).connect(a.destination);s.start(t);s.stop(t+dur+.1);}catch(e){}}
 function fillStations(){stationEl.innerHTML='';{const og=document.createElement('optgroup');og.label='Loaf FM';MUSIC.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;og.appendChild(o);});stationEl.appendChild(og);}{const og=document.createElement('optgroup');og.label='Calm';CALM.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;og.appendChild(o);});stationEl.appendChild(og);}
+  if(!BC){const og=document.createElement('optgroup');og.label='Your mixtapes';
+    for(const tp of S.tapes){const o=document.createElement('option');o.value='tape:'+tp.id;o.textContent=tp.n;og.appendChild(o);}
+    if(draft){const o=document.createElement('option');o.value='tape:draft';o.textContent=draft.n+' (not saved)';og.appendChild(o);}
+    const nw=document.createElement('option');nw.value='__new';nw.textContent='+ Make a mixtape…';og.appendChild(nw);
+    const cur=tapeOf(S.station);if(cur&&S.station!=='tape:draft'){const ed=document.createElement('option');ed.value='__edit';ed.textContent='Edit “'+cur.n+'”…';og.appendChild(ed);}
+    stationEl.appendChild(og);}
   if(!S.station){const o=document.createElement('option');o.value='';o.textContent='Pick a sound';stationEl.insertBefore(o,stationEl.firstChild);}
   stationEl.value=S.station||'';}
 if(!PALETTES[S.palette])S.palette='pegs';
-if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)){S.station='gen:purr';S.stationName='Purr';} /* a radio station saved before live radio was dropped */
+if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)&&!(tapeOf(S.station)&&S.station!=='tape:draft'&&!BC)&&!(BC&&tapeOf(S.station))){S.station='gen:purr';S.stationName='Purr';} /* a radio station saved before live radio was dropped */
 delete S.stationUrl;
 fillStations();
-stationEl.addEventListener('change',()=>{const v=stationEl.value;const s=CALM.find(x=>x.id===v)||MUSIC.find(x=>x.id===v);if(s)setStation(s);else stationEl.value=S.station||'';});
+stationEl.addEventListener('change',()=>{const v=stationEl.value;if(v==='__new'||v==='__edit'){stationEl.value=S.station||'';openMixtape(v==='__edit');return;}
+  const tp=tapeOf(v);const s=CALM.find(x=>x.id===v)||MUSIC.find(x=>x.id===v)||(tp&&{id:v,name:tp.n});if(s)setStation(s);else stationEl.value=S.station||'';});
+
+/* ================= The mixtape deck =================
+   Opens inside the case, under the controls. Changes are heard live: tempo, busyness, tone, drums and mood adjust the
+   running music; a new starting station or weather re-cuts the tape with a short fade. A new tape is a draft until
+   saved; a saved tape saves as you go. Copy link puts the whole recipe in the address. */
+let mtTape=null,mtPhase=0,mtSpin=null;
+const FACE=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.','#############s','####o#####o##s','####o#####o##s','######hmh####s'];
+const REEL=[[1,0],[2,0],[3,1],[3,2],[2,3],[1,3],[0,2],[0,1]];
+function cassetteSVG(tp,phase){ /* a flat pixel-art cassette; Loafie glows in the window like a little LED screen */
+  const W2=56,H2=33,cells=[];const P=(x,y,v)=>{if(x>=0&&y>=0&&x<W2&&y<H2)cells[y*W2+x]=v;};const Rr=(x,y,w,h,v)=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++)P(x+i,y+j,v);};
+  const K='#1d1c21',S1='#4a4950',S2='#5d5c64',LP='#fffaf0',SC='#a8a49a',lab=TAPE_COLORS[tp.c];
+  Rr(1,0,W2-2,H2,K);Rr(0,1,W2,H2-2,K);Rr(1,1,W2-2,H2-2,S1);Rr(1,1,W2-2,1,S2);          /* shell */
+  Rr(4,3,48,21,K);Rr(5,4,46,19,lab);Rr(5,4,46,6,LP);                                     /* label, white strip for the name */
+  for(let x=7;x<50;x+=2)P(x,11,K);                                                       /* a dotted rule */
+  Rr(17,12,22,11,K);                                                                     /* the window (Loafie goes here) */
+  const reel=cx=>{Rr(cx-3,14,7,7,K);Rr(cx-2,15,5,5,'#f1e7cf');Rr(cx-1,16,3,3,K);P(cx,17,'#f1e7cf');
+    (phase%2?[[-1,-1],[1,-1],[1,1],[-1,1]]:[[0,-2],[2,0],[0,2],[-2,0]]).forEach(([dx,dy])=>P(cx+dx,17+dy,K));};
+  reel(10);reel(45);                                                                     /* the reels turn while it plays */
+  Rr(12,26,32,7,K);Rr(13,27,30,6,S2);Rr(13,26,30,1,K);                                   /* the notch */
+  Rr(18,29,2,2,K);Rr(36,29,2,2,K);Rr(25,28,2,2,K);Rr(29,28,2,2,K);
+  [[2,2],[53,2],[2,30],[53,30],[28,31]].forEach(([x,y])=>P(x,y,SC));                    /* screws */
+  let o='';for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){const v=cells[y*W2+x];if(v)o+=`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${v}"/>`;}
+  let led='';for(let y=0;y<9;y++)for(let x=0;x<20;x++){const fx=x-3,fy=y-1,ch=fy>=0&&fy<FACE.length&&fx>=0&&fx<14?FACE[fy][fx]:'.';
+    const c=ch==='.'||ch==='o'||ch==='m'?null:ch==='s'?'#8774b8':ch==='p'?'#e064c0':'#f1e7cf';
+    led+=c?`<circle cx="${18+x+.5}" cy="${13+y+.5}" r=".43" fill="${c}"/>`:`<circle cx="${18+x+.5}" cy="${13+y+.5}" r=".16" fill="#2a2a30"/>`;}
+  const nm=tp.n.toUpperCase().replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+  return `<svg viewBox="0 0 ${W2} ${H2}" aria-hidden="true"><defs><filter id="mtg" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation=".25" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g shape-rendering="crispEdges">${o}</g><g filter="url(#mtg)">${led}</g><text x="28" y="8.6" text-anchor="middle" font-family="Doto,monospace" font-weight="900" font-size="${nm.length>16?3.1:3.8}" fill="${K}">${nm}</text></svg>`;}
+const mt=document.createElement('section');mt.className='mixtape';mt.id='mixtape';mt.hidden=true;mt.setAttribute('aria-label','Mixtape');
+const segHTML=(key,label,opts)=>`<div class="mt-row"><span class="mt-lab">${label}</span><div class="mt-seg" role="group" aria-label="${label}">${opts.map((o,i)=>`<button type="button" data-k="${key}" data-v="${i}">${o}</button>`).join('')}</div></div>`;
+const slHTML=(key,label,lo,hi)=>`<label class="mt-sl"><span class="mt-lab">${label}</span><input class="fader" type="range" min="0" max="100" step="1" data-k="${key}" aria-label="${label}"><span class="mt-ends"><span>${lo}</span><span>${hi}</span></span></label>`;
+mt.innerHTML=`<header class="mt-head"><h3>MIXTAPE</h3><p>Dial it in while it plays. Save it, or send the link to a friend.</p><button class="icon mt-x" type="button" aria-label="Close the mixtape deck" title="Close">✕</button></header>
+<div class="mt-body"><div class="mt-left"><div class="mt-cass"></div>
+<label class="mt-field"><span class="mt-lab">Name</span><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false"></label>
+<div class="mt-row"><span class="mt-lab">Label</span><div class="mt-sw" role="group" aria-label="Label colour">${TAPE_COLORS.map((c,i)=>`<button type="button" data-c="${i}" style="--c:${c}" aria-label="Label colour ${i+1}"></button>`).join('')}</div></div>
+<button class="mt-more" type="button" aria-expanded="false">Adjust the sound</button></div>
+<div class="mt-right">${segHTML('b','Start from',['Late Shift','Rainy Window','CRT Dreams','Sunday Loaf','Desert Night'])}${segHTML('m','Mood',['Warm','Wistful','Jazzy'])}${segHTML('d','Drums',['None','Brushes','Soft beat'])}${segHTML('w','Weather',['None','Rain','Ocean','Fire','Purr'])}
+<div class="mt-sliders">${slHTML('t','Tempo','sleepy','steady')}${slHTML('u','Busyness','barely','a little')}${slHTML('o','Tone','dusty','clear')}</div>
+<div class="mt-actions"><button class="btn filled mt-save" type="button">Save tape</button><button class="btn tonal mt-link" type="button">Copy link</button><button class="btn outlined mt-del" type="button">Delete</button><span class="mt-note" aria-live="polite"></span></div></div></div>`;
+face.after(mt);
+const mtQ=sel=>mt.querySelector(sel);
+function mtIsSaved(){return !!(mtTape&&mtTape.id&&S.tapes.includes(mtTape));}
+function mtId(){return mtIsSaved()?'tape:'+mtTape.id:'tape:draft';}
+function paintMixtape(){if(!mtTape)return;const tp=mtTape;mtQ('.mt-cass').innerHTML=cassetteSVG(tp,mtPhase);
+  if(document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=tp.n;
+  mt.querySelectorAll('.mt-seg button').forEach(b=>b.setAttribute('aria-pressed',String(tp[b.dataset.k]===+b.dataset.v)));
+  mt.querySelectorAll('.mt-sw button').forEach(b=>b.setAttribute('aria-pressed',String(tp.c===+b.dataset.c)));
+  mt.querySelectorAll('.mt-sl input').forEach(r=>{r.value=tp[r.dataset.k];r.style.setProperty('--v',tp[r.dataset.k]+'%');});
+  const saved=mtIsSaved();mtQ('.mt-save').hidden=saved;mtQ('.mt-del').hidden=!saved;
+  mtQ('.mt-note').textContent=saved?'Saved on this device. Changes save as you go.':'Not saved yet. The link works for anyone.';}
+/* hear a change: small ones adjust the running music, bigger ones re-cut the tape with a short fade */
+let mtRecut=null;
+function mtApply(structural){const id=mtId();if(mtIsSaved())save();S.stationName=mtTape.n;dirty=true;
+  if(gen&&gen.id===id){if(structural){clearTimeout(mtRecut);mtRecut=setTimeout(()=>{genStop(false);setTimeout(()=>{if(S.station===id)genStart(id);},450);},250);}else if(gen.snd&&gen.snd.update)gen.snd.update(tapeStyle(mtTape));}
+  fillStations();paintMixtape();}
+function openMixtape(edit){const cur=tapeOf(S.station);
+  if(edit&&cur)mtTape=cur;
+  else if(draft&&S.station==='tape:draft')mtTape=draft;
+  else{const bi=Math.max(0,TAPE_BASES.indexOf((S.station||'').replace('gen:','')));const base=MUSIC.some(m=>m.id===S.station)?bi:1;
+    draft=cleanTape({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),b:base,m:[0,1,1,2,1][base],d:[2,1,2,1,0][base],w:[0,1,0,4,0][base],t:[52,30,75,62,15][base],u:[35,30,55,40,20][base],o:[45,40,55,50,35][base]});
+    mtTape=draft;setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
+  mt.hidden=false;paintMixtape();startSpin();mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function closeMixtape(){mt.hidden=true;stopSpin();}
+function startSpin(){stopSpin();mtSpin=setInterval(()=>{if(mt.hidden||!mtTape)return;if(gen&&gen.id===mtId()){mtPhase=(mtPhase+1)%8;mtQ('.mt-cass').innerHTML=cassetteSVG(mtTape,mtPhase);}},260);} /* the reels turn while the tape plays */
+function stopSpin(){clearInterval(mtSpin);mtSpin=null;}
+mtQ('.mt-x').addEventListener('click',closeMixtape);
+mt.addEventListener('click',e=>{const b=e.target.closest('.mt-seg button');if(b&&mtTape){const k=b.dataset.k,v=+b.dataset.v;if(mtTape[k]===v)return;mtTape[k]=v;mtApply(k==='b'||k==='w');}
+  const c=e.target.closest('.mt-sw button');if(c&&mtTape){mtTape.c=+c.dataset.c;mtApply(false);}});
+mt.querySelectorAll('.mt-sl input').forEach(r=>r.addEventListener('input',()=>{if(!mtTape)return;mtTape[r.dataset.k]=+r.value;r.style.setProperty('--v',r.value+'%');clearTimeout(r._t);r._t=setTimeout(()=>mtApply(false),120);}));
+mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply(false),250);});
+mtQ('.mt-save').addEventListener('click',()=>{if(!mtTape||mtIsSaved())return;if(S.tapes.length>=TAPE_MAX){mtQ('.mt-note').textContent='You can keep '+TAPE_MAX+' mixtapes. Delete one to save this.';return;}
+  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();paintMixtape();mtQ('.mt-note').textContent='Saved. It’s in the station list under Your mixtapes.';});
+mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;closeMixtape();
+  if(S.station===id){const was=!!gen;S.station='gen:purr';S.stationName='Purr';if(was){genStop(false);setTimeout(()=>genStart('gen:purr'),500);}}save();fillStations();});
+mtQ('.mt-link').addEventListener('click',async()=>{if(!mtTape)return;const url=location.origin+location.pathname.replace(/[^/]*$/,'')+'?tape='+encodeTape(mtTape);
+  let ok=false;try{await navigator.clipboard.writeText(url);ok=true;}catch(e){}const b=mtQ('.mt-link');b.textContent=ok?'Link copied':'Copy failed';if(!ok)mtQ('.mt-note').textContent=url;setTimeout(()=>b.textContent='Copy link',1600);});
+mtQ('.mt-more').addEventListener('click',e=>{const open=mt.classList.toggle('mt-open');e.target.setAttribute('aria-expanded',String(open));e.target.textContent=open?'Hide the controls':'Adjust the sound';});
+/* someone opened a mixtape link: load it as an unsaved tape, ready to play and keep */
+if(!BC&&new URLSearchParams(location.search).get('tape')){const tp=decodeTape(new URLSearchParams(location.search).get('tape'));
+  if(tp){draft=tp;S.station='tape:draft';S.stationName=tp.n;fillStations();openMixtape(false);say('Mixtape: press play');}
+  try{const u=new URL(location.href);u.searchParams.delete('tape');history.replaceState(history.state,'',u.pathname+u.search+u.hash);}catch(e){}}
 /* ================= Material colour scheme from the palette seed ================= */
 const lin=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);};
 const gam=v=>{v=v<=.0031308?12.92*v:1.055*Math.pow(v,1/2.4)-.055;return Math.round(clamp(v,0,1)*255);};
@@ -422,7 +537,7 @@ playKey.addEventListener('click',()=>{if(gen){stopRadio();return;}playRadio();
   if(!cat.inBox&&!cat.eat&&!cat.purr&&!cat.goBox&&(cat.state==='sit'||cat.state==='act'))act((performance.now()-t0)/1000,'loaf');}); /* press play and she settles into a loaf */
 const brightEl=$('brightness'),volEl=$('volume');brightEl.value=S.brightness;volEl.value=S.volume;
 brightEl.addEventListener('input',()=>{S.brightness=+brightEl.value;paintKeys();save();});
-function applyVol(){if(gen)gen.master.gain.setTargetAtTime(vol()*GEN_LEVEL[gen.id],actx.currentTime,.1);}
+function applyVol(){if(gen)gen.master.gain.setTargetAtTime(vol()*levelOf(gen.id),actx.currentTime,.1);}
 function setMuted(m){muted=!!m;applyVol();dirty=true;paintKeys();}
 const muteKey=$('muteKey');muteKey.addEventListener('click',()=>setMuted(!muted));
 volEl.addEventListener('input',()=>{S.volume=+volEl.value;muted=false;applyVol();paintKeys();save();});
@@ -509,7 +624,7 @@ const SOUTH=(()=>{try{return /^(Australia|Antarctica|Pacific\/(Auckland|Chatham|
 function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'winter':m<5?'spring':m<8?'summer':'autumn';}
 function dayRand(d){let h=d.getFullYear()*400+d.getMonth()*32+d.getDate();h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^h>>>16)>>>0)/4294967296;}
 function isNight(d){if(NIGHT_FORCE)return true;const h=d.getHours();return h>=20||h<6;}
-function skyKind(d){if(SKY_FORCE)return SKY_FORCE;if(gen&&(gen.id==='gen:rain'||gen.id==='gen:window'))return 'rain'; /* play rain and it rains on her desk */const s=season(d),r=dayRand(d);
+function skyKind(d){if(SKY_FORCE)return SKY_FORCE;if(gen&&(gen.id==='gen:rain'||gen.id==='gen:window'||(tapeOf(gen.id)||{}).w===1))return 'rain'; /* play rain and it rains on her desk */const s=season(d),r=dayRand(d);
   if(s==='winter')return r<.45?'snow':r<.6?'rain':'clear';
   if(r<.18)return 'rain';
   return s==='autumn'?'leaves':s==='spring'?'petals':isNight(d)?'fireflies':'clear';}
@@ -699,7 +814,7 @@ paintFloat();
 let rt;const relayout=()=>{clearTimeout(rt);rt=setTimeout(layout,60);};window.addEventListener('resize',relayout);
 if('ResizeObserver' in window){const ro=new ResizeObserver(relayout);ro.observe(face);ro.observe(win);}
 restartLoop();
-if(BC){const st=[...CALM,...MUSIC].find(s=>s.id===S.station)||MUSIC[0];S.stationName=st.name;fillStations();
+if(BC){const st=[...CALM,...MUSIC].find(s=>s.id===S.station)||(draft&&S.station==='tape:draft'&&{name:draft.n})||MUSIC[0];S.stationName=st.name;fillStations();
   const begin=()=>{if(!gen)genStart(S.station);if(actx&&actx.state!=='running'){const o=document.createElement('button');o.className='bcstart';o.textContent='Click to start the sound';
       o.addEventListener('click',()=>{actx.resume();o.remove();});document.body.appendChild(o);}};
   begin();

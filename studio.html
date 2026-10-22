@@ -69,6 +69,12 @@
     </fieldset>
 
     <fieldset>
+      <legend>Mixtape (optional)</legend>
+      <input type="text" name="tape" id="tape" placeholder="Paste a mixtape link" autocomplete="off" spellcheck="false">
+      <p class="hint" id="tapeHint">Plays your mixtape instead of the station above.</p>
+    </fieldset>
+
+    <fieldset>
       <legend>Palette</legend>
       <select name="palette" id="palette">
         <option value="pegs">Pegs</option><option value="teal">Teal VFD</option><option value="amber">Amber</option>
@@ -141,20 +147,22 @@
     const l=document.createElement('label');l.className='chk';l.innerHTML='<input type="checkbox" name="rot_'+k+'"'+(i<5?' checked':'')+'> '+n;$('rotList').appendChild(l);});
   st.append(og1,og2);
   ZONES.forEach(([v,n])=>$('tz').appendChild(new Option(n,v)));
-  const DEF={mode:'video',station:'late',rotateOn:false,rotate:60,palette:'pegs',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,case:'dark',treats:true,dim:true,base:new URL('./',location.href).href,rot:['late','window','crt','sunday','desert']};
+  const DEF={tape:'',mode:'video',station:'late',rotateOn:false,rotate:60,palette:'pegs',tz:'America/Los_Angeles',tzCustom:'',label:'',vol:.8,case:'dark',treats:true,dim:true,base:new URL('./',location.href).href,rot:['late','window','crt','sunday','desert']};
   let cfg=Object.assign({},DEF);try{Object.assign(cfg,JSON.parse(localStorage.getItem(KEY)||'{}'));}catch(e){}
 
   function toForm(){f.mode.value=cfg.mode;st.value=cfg.station;$('rotateOn').checked=cfg.rotateOn;$('rotate').value=cfg.rotate;$('palette').value=cfg.palette;
     $('tz').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tz:'custom';$('tzCustom').value=ZONES.some(z=>z[0]===cfg.tz)?cfg.tzCustom:cfg.tz;$('label').value=cfg.label;
-    $('vol').value=cfg.vol;f.case.value=cfg.case;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('base').value=cfg.base;
+    $('vol').value=cfg.vol;f.case.value=cfg.case;$('treats').checked=cfg.treats;$('dim').checked=cfg.dim;$('base').value=cfg.base;$('tape').value=cfg.tape||'';
     STATIONS.forEach(([k])=>{f['rot_'+k].checked=cfg.rot.includes(k);});}
   function fromForm(){cfg.mode=f.mode.value;cfg.station=st.value;cfg.rotateOn=$('rotateOn').checked;cfg.rotate=Math.max(5,+$('rotate').value||60);cfg.palette=$('palette').value;
     cfg.tz=$('tz').value==='custom'?$('tzCustom').value.trim():$('tz').value;cfg.tzCustom=$('tzCustom').value.trim();cfg.label=$('label').value.trim();
-    cfg.vol=+$('vol').value;cfg.case=f.case.value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.base=$('base').value.trim()||DEF.base;
+    cfg.vol=+$('vol').value;cfg.case=f.case.value;cfg.treats=$('treats').checked;cfg.dim=$('dim').checked;cfg.base=$('base').value.trim()||DEF.base;cfg.tape=$('tape').value.trim();
     cfg.rot=STATIONS.map(([k])=>k).filter(k=>f['rot_'+k].checked);try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}}
 
-  function address(preview){const p=new URLSearchParams();p.set('broadcast',cfg.mode);
-    if(cfg.rotateOn&&cfg.rot.length>1){p.set('stations',cfg.rot.join(','));p.set('rotate',cfg.rotate);p.set('station',cfg.rot.includes(cfg.station)?cfg.station:cfg.rot[0]);}else p.set('station',cfg.station);
+  function tapeCode(){const v=(cfg.tape||'').trim();if(!v)return '';const m=v.match(/[?&]tape=([A-Za-z0-9_-]+)/);const c=m?m[1]:(/^[A-Za-z0-9_-]+$/.test(v)?v:'');return c;}
+  function tapeName(c){try{const a=JSON.parse(decodeURIComponent(escape(atob(c.replace(/-/g,'+').replace(/_/g,'/')))));return Array.isArray(a)&&a[0]===1?String(a[1]).slice(0,24):'';}catch(e){return '';}}
+  function address(preview){const p=new URLSearchParams();p.set('broadcast',cfg.mode);const tc=tapeCode();
+    if(tc){p.set('tape',tc);}else if(cfg.rotateOn&&cfg.rot.length>1){p.set('stations',cfg.rot.join(','));p.set('rotate',cfg.rotate);p.set('station',cfg.rot.includes(cfg.station)?cfg.station:cfg.rot[0]);}else p.set('station',cfg.station);
     p.set('palette',cfg.palette);
     if(cfg.mode==='live'){if(cfg.tz)p.set('tz',cfg.tz);if(cfg.label)p.set('label',cfg.label);}
     p.set('vol',preview&&!$('pvSound').checked?'0':String(cfg.vol));
@@ -164,7 +172,7 @@
   let pvT,lastPv='';
   function render(){fromForm();const live=cfg.mode==='live';$('tzBox').hidden=!live;$('tzCustom').hidden=$('tz').value!=='custom';$('rotList').hidden=!cfg.rotateOn;
     $('modeHint').textContent=live?'Shows the real time on the small line, in the time zone below.':'No clock or date: the big digits show the station’s frequency.';
-    $('volOut').textContent=Math.round(cfg.vol*100);const url=address(false);$('url').textContent=url;
+    $('volOut').textContent=Math.round(cfg.vol*100);{const tc=tapeCode(),nm=tc&&tapeName(tc);$('tapeHint').textContent=!cfg.tape?'Plays your mixtape instead of the station above.':nm?'Playing “'+nm+'”. The station and rotation settings are ignored.':'That doesn’t look like a mixtape link.';st.disabled=!!nm;$('rotateOn').disabled=!!nm;}const url=address(false);$('url').textContent=url;
     clearTimeout(pvT);pvT=setTimeout(()=>{const pv=address(true);if(pv!==lastPv){lastPv=pv;$('pv').src=pv;}},350);}
 
   toForm();render();

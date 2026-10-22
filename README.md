@@ -105,3 +105,7 @@ Examples:
 ## No keyboard shortcuts
 
 Deliberately none (no Space, M or Z): people type in other windows, especially after petting her in the floating window, and a stray key must never stop the music or start a sit. All controls are real buttons, so Tab and Enter still work.
+
+## Mixtapes
+
+`+ Make a mixtape…` in the station list opens the deck inside the case (`openMixtape()` in board.js). A mixtape is a recipe for the generative engine: base station, mood (chord set), drums, weather layer, tempo, busyness and tone, plus a name and label color (`tapeStyle()` turns it into a style). Tempo, busyness, tone, drums and mood change the running music live (`music().update()`); a new base or weather re-cuts it with a short fade. New tapes are drafts until saved; saved tapes (up to 10, in localStorage) save as you edit. Copy link encodes the recipe as `?tape=…` (base64url JSON, validated and clamped on load, name rendered as text only). Broadcast mode accepts `&tape=…` too, and the studio page has a field to paste a mixtape link. Each tape gets a free frequency when it's made (stored as `f`, carried in links), so renaming it doesn't move it on the dial. A new mixtape starts playing as soon as it's created; a shared link waits for a tap on play, as browsers require. The cassette is drawn in LED dots with Loafie in the window; the reels turn while it plays.
