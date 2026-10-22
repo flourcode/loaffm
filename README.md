@@ -23,7 +23,7 @@ index.html                 the board and a short introduction
 privacy.html  terms.html  404.html  analytics.js  studio.html
 board.js  board.css        the board: clock, cat, music and sounds, sky, and page-swapping navigation
 site.css                   shared styles
-fonts/                     Fraunces (headlines), IBM Plex Sans (text), Doto (wordmark); self-hosted, OFL
+fonts/                     Doto (headlines, bold; wordmark, black), IBM Plex Sans (text); self-hosted, OFL
 manifest.webmanifest  sw.js  icons/   install-as-app and offline
 og.png                     the preview image for shared links
 robots.txt  sitemap.xml  CNAME

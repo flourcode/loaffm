@@ -2,7 +2,7 @@
    Colour roles are Material 3 tokens built from the Mono palette. On the home page the board
    overrides them at runtime with whichever palette the visitor picked. */
 /* Fonts, self-hosted (SIL Open Font License; see fonts/LICENSE-*.txt). Nothing loads from Google. */
-@font-face{font-family:'Fraunces';src:url(fonts/fraunces.woff2) format('woff2');font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:'Doto';src:url(fonts/doto-700.woff2) format('woff2');font-weight:700;font-display:swap}
 @font-face{font-family:'Doto';src:url(fonts/doto-900.woff2) format('woff2');font-weight:900;font-display:swap}
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-400.woff2) format('woff2');font-weight:400;font-style:normal;font-display:swap}
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-400-italic.woff2) format('woff2');font-weight:400;font-style:italic;font-display:swap}
@@ -11,7 +11,7 @@
 :root{
   --p:#c6c6c6; --on-p:#303030; --p-c:#474747; --on-p-c:#e2e2e2; --s:#c6c6c6; --s-c:#474747; --on-s-c:#e2e2e2; --surf:#141414; --surf-low:#1b1b1b; --surf-c:#1f1f1f; --surf-high:#2a2a2a; --surf-highest:#353535; --on-surf:#e2e2e2; --on-surf-v:#c6c6c6; --outline:#919191; --outline-v:#474747;
   --panel:#050607; --cat:#b8b1a6; --cat-stripe:#6f6961;
-  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --display:'Fraunces',Georgia,'Times New Roman',serif; --dots:'Doto','Courier New',monospace;
+  --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --display:'Doto','Courier New',monospace; --dots:'Doto','Courier New',monospace;
   --gutter:max(16px,env(safe-area-inset-left,0px)); --wide:1200px; --read:720px;
   color-scheme:dark;
 }
@@ -41,8 +41,8 @@ img{max-width:100%;height:auto}
 /* Sections on the home page */
 .band{max-width:var(--wide);margin:0 auto;padding:0 var(--gutter)}
 h1,h2,h3{line-height:1.2;margin:0 0 12px;font-weight:500}
-h1{font:600 clamp(30px,4.4vw,44px)/1.12 var(--display);letter-spacing:-.4px;font-variation-settings:'SOFT' 60,'opsz' 96}
-h2{font:600 clamp(23px,2.8vw,30px)/1.2 var(--display);letter-spacing:-.2px;font-variation-settings:'SOFT' 60,'opsz' 48}
+h1{font:700 clamp(32px,4.8vw,50px)/1.1 var(--display);letter-spacing:.5px}
+h2{font:700 clamp(24px,2.9vw,31px)/1.2 var(--display);letter-spacing:.4px}
 h3{font-size:18px}
 .lede{font-size:18px;color:var(--on-surf-v);max-width:62ch;margin:0 0 16px}
 .tips{display:flex;flex-wrap:wrap;gap:8px;padding:0;margin:20px 0 0;list-style:none}
@@ -102,7 +102,8 @@ h3{font-size:18px}
 .page1 .intro h1{padding-bottom:12px;border-bottom:1px solid var(--outline-v);margin-bottom:16px}
 .page1 .lede{margin:0 0 10px;font-size:17px;color:var(--on-surf);max-width:none}
 .page1 section+section{margin-top:36px}
-.page1 h2{font-size:24px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--outline-v)}
+/* headings are Doto bold: the dotted display face, like the board */
+.page1 h2{font-size:30px;margin:0 0 12px;padding-bottom:8px;border-bottom:1px solid var(--outline-v)}
 .page1 p{margin:0 0 12px}
 .page1 .aside{color:var(--on-surf-v);font-size:15px}
 .items{margin:12px 0 14px;display:grid;grid-template-columns:minmax(120px,max-content) 1fr;border-top:1px solid var(--outline-v)}
@@ -112,3 +113,6 @@ h3{font-size:18px}
 @media (max-width:560px){.items{grid-template-columns:1fr}.items dt{border-bottom:0;padding-bottom:0}.items dd{padding-top:2px}}
 .beats{color:var(--on-surf-v);font-style:italic}
 kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;border:1px solid var(--outline-v);border-bottom-width:2px;border-radius:5px;background:var(--surf-c)}
+/* 404 */
+.lostwrap{margin:8px 0 20px;max-width:440px}
+.lost{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 0 0 7px #1c1c1e}
