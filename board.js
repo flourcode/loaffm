@@ -179,6 +179,8 @@ const SOUNDS={
    a breakdown) so it keeps changing without ever demanding attention. */
 const MUSIC=[{id:'gen:late',name:'Late Shift',url:''},{id:'gen:window',name:'Rainy Window',url:''},{id:'gen:crt',name:'CRT Dreams',url:''},{id:'gen:sunday',name:'Sunday Loaf',url:''},{id:'gen:desert',name:'Desert Night',url:''}];
 const mtof=m=>440*Math.pow(2,(m-69)/12);
+/* the keys under Loafie: the music tells the desk which note it plays and when, and that key lights up */
+const keyHits=[];function keyHit(a,t,m){if(a!==actx)return;keyHits.push(t,m);if(keyHits.length>240)keyHits.splice(0,keyHits.length-240);}
 const choose=a=>a[Math.floor(Math.random()*a.length)];
 const CH={maj7:[0,4,7,11],m7:[0,3,7,10],dom7:[0,4,7,10],maj9:[0,4,7,11,14],m9:[0,3,7,10,14],dom9:[0,4,7,10,14],sus:[0,5,7,10],m11:[0,3,7,10,17],add9:[0,4,7,14]};
 /* progressions as [scale-degree root in semitones, chord type] */
@@ -208,7 +210,7 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
   const out=(node,pan,rv,to)=>{let n=node;if(a.createStereoPanner){const p=a.createStereoPanner();p.pan.value=pan||0;n.connect(p);n=p;}n.connect(to||bus);if(rv){const s=a.createGain();s.gain.value=rv;n.connect(s).connect(send);}};
   const osc=(type,f,t)=>{const o=a.createOscillator();o.type=type;o.frequency.setValueAtTime(f,t);wowG.connect(o.detune);return o;};
   /* instruments */
-  const ep=(t,m,dur,vel)=>{const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f,t),mg=a.createGain(),g=a.createGain(),tg=a.createGain();
+  const ep=(t,m,dur,vel)=>{keyHit(a,t,m);const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f,t),mg=a.createGain(),g=a.createGain(),tg=a.createGain();
     mg.gain.setValueAtTime(f*1.05*vel,t);mg.gain.exponentialRampToValueAtTime(f*.08,t+.9);md.connect(mg).connect(c.frequency);const c2=osc('sine',f,t);c2.detune.setValueAtTime(rnd(5,9),t);const g2=a.createGain();g2.gain.value=.35;c2.connect(g2);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09*vel,t+.006);g.gain.setTargetAtTime(.035*vel,t+.01,.5);g.gain.setTargetAtTime(0,t+dur,.35);
     tg.gain.value=1;tremG.connect(tg.gain);c.connect(g).connect(tg);g2.connect(g);out(tg,(m-62)/30,.6);const e=t+dur+2;c.start(t);md.start(t);c2.start(t);c.stop(e);md.stop(e);c2.stop(e);};
@@ -224,11 +226,11 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
   const snare=(t,v)=>{t=loose(t,.006,.024);v*=rnd(.8,1.05);noiseHit(t,'bandpass',1400,.8,.005,.16,.05*v,.05,.25,drumBus); /* laid back, a touch late */const o=a.createOscillator(),g=a.createGain();o.frequency.value=190;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.04*v,t+.003);g.gain.exponentialRampToValueAtTime(.001,t+.09);o.connect(g);out(g,.05,.2,drumBus);o.start(t);o.stop(t+.12);};
   const hat=(t,v)=>noiseHit(loose(t,-.012,.012),'highpass',6500,.7,.003,.03,.015*v*rnd(.6,1.1),.25,0,drumBus);
   const brush=(t,v,long)=>noiseHit(loose(t,-.01,.015),'bandpass',2800,.9,long?.07:.025,long?.32:.12,.026*v*rnd(.75,1.1),-.15,.3,drumBus);
-  const bell=(t,m,v)=>{const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f*3.5,t),mg=a.createGain(),g=a.createGain();mg.gain.setValueAtTime(f*2*v,t);mg.gain.exponentialRampToValueAtTime(f*.05,t+2);md.connect(mg).connect(c.frequency);
+  const bell=(t,m,v)=>{keyHit(a,t,m);const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f*3.5,t),mg=a.createGain(),g=a.createGain();mg.gain.setValueAtTime(f*2*v,t);mg.gain.exponentialRampToValueAtTime(f*.05,t+2);md.connect(mg).connect(c.frequency);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.035*v,t+.01);g.gain.exponentialRampToValueAtTime(.0005,t+4.5);c.connect(g);out(g,rnd(-.5,.5),1.4);c.start(t);md.start(t);c.stop(t+4.6);md.stop(t+4.6);};
-  const lead=(t,m,dur,v)=>{const o=osc('triangle',mtof(m),t),f=a.createBiquadFilter(),g=a.createGain();f.type='lowpass';f.frequency.value=1300;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.045*v,t+.08);g.gain.setTargetAtTime(0,t+dur,.25);
+  const lead=(t,m,dur,v)=>{keyHit(a,t,m);const o=osc('triangle',mtof(m),t),f=a.createBiquadFilter(),g=a.createGain();f.type='lowpass';f.frequency.value=1300;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.045*v,t+.08);g.gain.setTargetAtTime(0,t+dur,.25);
     o.connect(f).connect(g);out(g,.2,.8);o.start(t);o.stop(t+dur+1.5);};
-  const pluck=(t,m,v,cut)=>{const o=osc('square',mtof(m),t),f=a.createBiquadFilter(),g=a.createGain();f.type='lowpass';f.Q.value=2;f.frequency.setValueAtTime(cut*1.8,t);f.frequency.exponentialRampToValueAtTime(cut*.5,t+.25);
+  const pluck=(t,m,v,cut)=>{keyHit(a,t,m);const o=osc('square',mtof(m),t),f=a.createBiquadFilter(),g=a.createGain();f.type='lowpass';f.Q.value=2;f.frequency.setValueAtTime(cut*1.8,t);f.frequency.exponentialRampToValueAtTime(cut*.5,t+.25);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.02*v,t+.004);g.gain.exponentialRampToValueAtTime(.0005,t+.35);o.connect(f).connect(g);out(g,rnd(-.3,.3),.5);o.start(t);o.stop(t+.4);};
   const blip=(t,m)=>{const o=a.createOscillator(),g=a.createGain();o.type='square';o.frequency.value=mtof(m);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.006,t+.003);g.gain.setValueAtTime(.006,t+.05);g.gain.linearRampToValueAtTime(0,t+.06);o.connect(g);out(g,rnd(-.6,.6),.6);o.start(t);o.stop(t+.08);};
   const cricket=(t)=>{const f=rnd(4300,4900),n=2+Math.floor(Math.random()*3),pan=rnd(-.8,.8);for(let i=0;i<n;i++){const tt=t+i*.11,o=a.createOscillator(),am=a.createOscillator(),ag=a.createGain(),g=a.createGain();o.frequency.value=f;am.frequency.value=rnd(16,20);
@@ -388,7 +390,7 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
   const noise=(t,type,fq,q,att,dec,lvl,pan,rv,to)=>{const s=a.createBufferSource();s.buffer=white;const f=bq(type,fq,q);const g=a.createGain();
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(lvl,t+att);g.gain.exponentialRampToValueAtTime(.0004,t+att+dec);s.connect(f).connect(g);out(g,pan,rv,0,to);s.start(t,Math.random()*2,att+dec+.05);};
   /* ---- instruments ---- */
-  const ep=(t,m,dur,vel,pan,rv,dl)=>{const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f,t),mg=a.createGain(),g=a.createGain(),tg=a.createGain();
+  const ep=(t,m,dur,vel,pan,rv,dl)=>{keyHit(a,t,m);const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f,t),mg=a.createGain(),g=a.createGain(),tg=a.createGain();
     mg.gain.setValueAtTime(f*1.05*vel*bright,t);mg.gain.exponentialRampToValueAtTime(f*.08,t+.9);md.connect(mg).connect(c.frequency);const c2=osc('sine',f,t);c2.detune.setValueAtTime(rnd(5,9),t);const g2=a.createGain();g2.gain.value=.35;c2.connect(g2);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.09*vel,t+.006);g.gain.setTargetAtTime(.035*vel,t+.01,.5);g.gain.setTargetAtTime(0,t+dur,.35);
     c.connect(g).connect(tg);g2.connect(g);out(tg,pan!=null?pan:(m-62)/30,rv!=null?rv:.6,dl||0,epBus);const e=t+dur+2;c.start(t);md.start(t);c2.start(t);c.stop(e);md.stop(e);c2.stop(e);};
@@ -396,34 +398,34 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
     f.frequency.setValueAtTime(380*bright,t);f.frequency.linearRampToValueAtTime(1100*bright,t+dur*.5);f.frequency.linearRampToValueAtTime(600*bright,t+dur+att);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.022*lvl,t+att);g.gain.setValueAtTime(.022*lvl,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+att);f.connect(g);out(g,0,.9);
     for(const m of ms)for(const d of [-7,7]){const o=osc(wave||'sawtooth',mtof(m),t);o.detune.setValueAtTime(d,t);o.connect(f);o.start(t);o.stop(t+dur+att+.1);}};
-  const bassLo=(t,m,dur,lvl)=>{const o=osc('sine',mtof(m),t),o2=osc('triangle',mtof(m),t),g=a.createGain(),g2=a.createGain();g2.gain.value=.25;
+  const bassLo=(t,m,dur,lvl)=>{keyHit(a,t,m);const o=osc('sine',mtof(m),t),o2=osc('triangle',mtof(m),t),g=a.createGain(),g2=a.createGain();g2.gain.value=.25;
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16*lvl,t+.02);g.gain.setTargetAtTime(.09*lvl,t+.05,.4);g.gain.setTargetAtTime(0,t+dur,.12);o.connect(g);o2.connect(g2).connect(g);out(g,0,0);o.start(t);o2.start(t);o.stop(t+dur+1);o2.stop(t+dur+1);};
-  const sub=(t,m,dur,lvl)=>{const o=osc('sine',mtof(m),t),o2=osc('triangle',mtof(m),t),g=a.createGain(),g2=a.createGain();g2.gain.value=.18;
+  const sub=(t,m,dur,lvl)=>{keyHit(a,t,m);const o=osc('sine',mtof(m),t),o2=osc('triangle',mtof(m),t),g=a.createGain(),g2=a.createGain();g2.gain.value=.18;
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.2*lvl,t+.008);g.gain.setTargetAtTime(.15*lvl,t+.02,.15);g.gain.setTargetAtTime(0,t+dur,.03);o.connect(g);o2.connect(g2).connect(g);out(g,0,0);o.start(t);o2.start(t);o.stop(t+dur+.4);o2.stop(t+dur+.4);};
   const gtrBus=a.createGain(),gtrF=bq('lowpass',3600*bright,.5),gtrB=bq('peaking',220,1);gtrB.gain.value=3;gtrBus.connect(gtrB).connect(gtrF);out(gtrF,-.18,.35);
   const thumbBus=a.createGain(),thumbF=bq('lowpass',1100,.5);thumbBus.connect(thumbF);out(thumbF,0,.05);
-  const string=(t,m,v,dur,kind)=>{const k=ksBuf(a,m,kind),s=a.createBufferSource();s.buffer=k.b;s.playbackRate.value=k.rate;const g=a.createGain();
+  const string=(t,m,v,dur,kind)=>{keyHit(a,t,m);const k=ksBuf(a,m,kind),s=a.createBufferSource();s.buffer=k.b;s.playbackRate.value=k.rate;const g=a.createGain();
     g.gain.setValueAtTime(v,t);g.gain.setTargetAtTime(0,t+dur,kind==='thumb'?.06:.04);s.connect(g).connect(kind==='thumb'?thumbBus:gtrBus);s.start(t);s.stop(t+Math.min(dur+.5,k.b.duration));};
-  const flute=(t,m,dur,v)=>{const f=mtof(m),o=osc('sine',f,t),o2=osc('sine',2*f,t),o3=osc('triangle',f,t),g=a.createGain(),g2=a.createGain(),g3=a.createGain(),lpf=bq('lowpass',3400*bright,.5);g2.gain.value=.12;g3.gain.value=.18;
+  const flute=(t,m,dur,v)=>{keyHit(a,t,m);const f=mtof(m),o=osc('sine',f,t),o2=osc('sine',2*f,t),o3=osc('triangle',f,t),g=a.createGain(),g2=a.createGain(),g3=a.createGain(),lpf=bq('lowpass',3400*bright,.5);g2.gain.value=.12;g3.gain.value=.18;
     const vib=a.createOscillator();vib.frequency.value=rnd(4.8,5.6);const vg=a.createGain();vg.gain.setValueAtTime(0,t);vg.gain.linearRampToValueAtTime(dur>.4?13:3,t+Math.min(.45,dur*.7));vib.connect(vg);vg.connect(o.detune);vg.connect(o2.detune);vg.connect(o3.detune);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06*v,t+.06);g.gain.linearRampToValueAtTime(.048*v,t+.2);g.gain.setValueAtTime(.048*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.14);
     o.connect(g);o2.connect(g2).connect(g);o3.connect(g3).connect(g);g.connect(lpf);out(lpf,.12,.55,.12);
     noise(t,'bandpass',f*2.2,1.4,.02,.12,.012*v,.12,.3);const e=t+dur+.3;[o,o2,o3,vib].forEach(x=>{x.start(t);x.stop(e);});};
-  const stab=(t,ns,dur,v)=>{const f=bq('lowpass',1200*Math.max(bright,.7),.7),g=a.createGain(); /* a soft organ chord: sines and a quiet second harmonic, no EDM sweep */
+  const stab=(t,ns,dur,v)=>{ns.forEach(m=>keyHit(a,t,m));const f=bq('lowpass',1200*Math.max(bright,.7),.7),g=a.createGain(); /* a soft organ chord: sines and a quiet second harmonic, no EDM sweep */
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*v,t+.006);g.gain.setTargetAtTime(.025*v,t+.03,.15);g.gain.setTargetAtTime(0,t+dur,.07);f.connect(g);out(g,.08,.45,.25);
     for(const m of ns)for(const [mul,k] of [[1,1],[2,.35],[.5,.25]]){const o=osc('sine',mtof(m)*mul,t),kg=a.createGain();kg.gain.value=k;o.detune.setValueAtTime(rnd(-4,4),t);o.connect(kg).connect(f);o.start(t);o.stop(t+dur+.6);}};
-  const mallet=(t,m,v,len,rv,dl)=>{const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f*2,t),mg=a.createGain(),g=a.createGain();len=len||1.4;
+  const mallet=(t,m,v,len,rv,dl)=>{keyHit(a,t,m);const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f*2,t),mg=a.createGain(),g=a.createGain();len=len||1.4;
     mg.gain.setValueAtTime(f*1.3*v*bright,t);mg.gain.exponentialRampToValueAtTime(f*.05,t+.35);md.connect(mg).connect(c.frequency);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*v,t+.005);g.gain.exponentialRampToValueAtTime(.0004,t+len);c.connect(g);out(g,rnd(-.3,.3),rv!=null?rv:.5,dl!=null?dl:.35);c.start(t);md.start(t);c.stop(t+len+.1);md.stop(t+len+.1);};
-  const glass=(t,m,v)=>{const f=mtof(m),c=osc('sine',f,t),c2=osc('sine',f*2.01,t),g=a.createGain(),g2=a.createGain();g2.gain.value=.15;
+  const glass=(t,m,v)=>{keyHit(a,t,m);const f=mtof(m),c=osc('sine',f,t),c2=osc('sine',f*2.01,t),g=a.createGain(),g2=a.createGain();g2.gain.value=.15;
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.045*v,t+.012);g.gain.exponentialRampToValueAtTime(.0004,t+5);c.connect(g);c2.connect(g2).connect(g);out(g,rnd(-.45,.45),1.1,.2);c.start(t);c2.start(t);c.stop(t+5.1);c2.stop(t+5.1);};
   const drone=(t,m,dur,lvl)=>{const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.03*lvl,t+dur*.4);g.gain.linearRampToValueAtTime(0,t+dur+1.5);out(g,0,.5);
     for(const [mm,k] of [[m,1],[m+7,.4],[m+12,.25]]){const o=osc('sine',mtof(mm),t),gg=a.createGain();gg.gain.value=k;o.connect(gg).connect(g);o.start(t);o.stop(t+dur+1.6);}};
-  const pulse=(t,m,dur,v,duty,vibr,pan)=>{const o=osc('sine',mtof(m),t);o.setPeriodicWave(pulseWave(a,duty));const g=a.createGain();
+  const pulse=(t,m,dur,v,duty,vibr,pan)=>{if(v>.2)keyHit(a,t,m);const o=osc('sine',mtof(m),t);o.setPeriodicWave(pulseWave(a,duty));const g=a.createGain();
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*v,t+.003);g.gain.setValueAtTime(.05*v,t+Math.max(.004,dur*.3));g.gain.linearRampToValueAtTime(.038*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.015);
     if(vibr&&dur>.25){const lf=a.createOscillator(),lg=a.createGain();lf.frequency.value=6;lg.gain.setValueAtTime(0,t);lg.gain.setValueAtTime(0,t+.15);lg.gain.linearRampToValueAtTime(18,t+.3);lf.connect(lg).connect(o.detune);lf.start(t);lf.stop(t+dur+.05);}
     o.connect(g);out(g,pan||0,.05);o.start(t);o.stop(t+dur+.05);};
-  const tri=(t,m,dur,v)=>{const o=osc('triangle',mtof(m),t),g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16*v,t+.003);g.gain.setValueAtTime(.16*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.01);o.connect(g);out(g,0,0);o.start(t);o.stop(t+dur+.03);};
+  const tri=(t,m,dur,v)=>{keyHit(a,t,m);const o=osc('triangle',mtof(m),t),g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16*v,t+.003);g.gain.setValueAtTime(.16*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.01);o.connect(g);out(g,0,0);o.start(t);o.stop(t+dur+.03);};
   /* drums (to the drum bus, which the house pump leaves alone) */
   const kick=(t,v)=>{t=loose(t,-.006,.008);v*=rnd(.88,1.04);const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(42,t+.13);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.26*v,t+.006);g.gain.exponentialRampToValueAtTime(.001,t+.38);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.45);};
   const hkick=(t,v)=>{const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(48,t+.09);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.34*v,t+.003);g.gain.exponentialRampToValueAtTime(.12*v,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+.42);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.45);
@@ -642,7 +644,7 @@ function fillStations(){stationEl.innerHTML='';{const og=document.createElement(
     for(const tp of S.tapes){const o=document.createElement('option');o.value='tape:'+tp.id;o.textContent=tp.n;og.appendChild(o);}
     if(draft){const o=document.createElement('option');o.value='tape:draft';o.textContent=draft.n+' (not saved)';og.appendChild(o);}
     const nw=document.createElement('option');nw.value='__new';nw.textContent='+ Make a mixtape…';og.appendChild(nw);
-    const cur=tapeOf(S.station);if(cur&&S.station!=='tape:draft'){const ed=document.createElement('option');ed.value='__edit';ed.textContent='Edit “'+cur.n+'”…';og.appendChild(ed);}
+    const cur=tapeOf(S.station);if(cur&&S.station!=='tape:draft'){const ed=document.createElement('option');ed.value='__edit';ed.textContent='Open “'+cur.n+'”…';og.appendChild(ed);}
     stationEl.appendChild(og);}
   if(!S.station){const o=document.createElement('option');o.value='';o.textContent='Pick a sound';stationEl.insertBefore(o,stationEl.firstChild);}
   stationEl.value=S.station||'';}
@@ -683,36 +685,53 @@ function cassetteSVG(tp,phase){const {W2,H2,cells,dots,K}=cassettePix(tp,phase);
   return `<svg viewBox="0 0 ${W2} ${H2}" aria-hidden="true"><defs><filter id="mtg" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation=".25" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g shape-rendering="crispEdges">${o}</g><g filter="url(#mtg)">${led}</g><text x="28" y="8.6" text-anchor="middle" font-family="Doto,monospace" font-weight="900" font-size="${nm.length>16?3.1:3.8}" fill="${K}">${nm}</text></svg>`;}
 const mt=document.createElement('section');mt.className='mixtape';mt.id='mixtape';mt.hidden=true;mt.setAttribute('aria-label','Mixtape');
 const segHTML=(key,label,opts)=>`<div class="mt-row"><span class="mt-lab">${label}</span><div class="mt-seg" role="group" aria-label="${label}">${opts.map((o,i)=>`<button type="button" data-k="${key}" data-v="${i}">${o}</button>`).join('')}</div></div>`;
-mt.innerHTML=`<header class="mt-head"><h3>MIXTAPE</h3><p>Pick a band, a mood and a groove. Name it, then send it to someone.</p><button class="icon mt-x" type="button" aria-label="Close the mixtape deck" title="Close">✕</button></header>
-<div class="mt-body"><div class="mt-left"><div class="mt-cass"></div>
-<label class="mt-field"><span class="mt-lab">Name</span><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false"></label>
+mt.innerHTML=`<header class="mt-head"><h3>MIXTAPE</h3><p class="mt-sub"></p><button class="icon mt-x" type="button" aria-label="Close the mixtape deck" title="Close">✕</button></header>
+<div class="mt-build"><div class="mt-body"><div class="mt-left"><div class="mt-cass"></div>
+<label class="mt-field"><span class="mt-lab">Name your tape</span><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false"></label>
 <div class="mt-row"><span class="mt-lab">Label</span><div class="mt-sw" role="group" aria-label="Label colour">${TAPE_COLORS.map((c,i)=>`<button type="button" data-c="${i}" style="--c:${c}" aria-label="Label colour ${i+1}"></button>`).join('')}</div></div>
 <button class="btn tonal mt-roll" type="button" title="Pick a random recipe, then tweak it"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0h6v1h1v6h-1v1H1v-1H0V1h1zM2 2v1h1V2zm3 0v1h1V2zM2 5v1h1V5zm3 0v1h1V5z"/></svg>Roll tape</button>
 </div>
 <div class="mt-right">${segHTML('v','Vibe',VIBES)}${segHTML('m','Mood',MOODS)}${segHTML('g','Groove',GROOVES)}${segHTML('s','Sound',RECS)}${segHTML('w','Weather',WEATHERS)}
-<div class="mt-actions"><button class="btn filled mt-save" type="button">Save tape</button><button class="btn tonal mt-share" type="button" hidden>Share</button><button class="btn tonal mt-link" type="button">Copy link</button><button class="btn outlined mt-card" type="button" title="A picture of this tape to post or send">Download card</button><button class="btn outlined mt-del" type="button">Delete</button><span class="mt-note" aria-live="polite"></span></div></div></div>`;
+<div class="mt-actions"><button class="btn filled mt-make" type="button">Make tape</button><span class="mt-note" aria-live="polite"></span></div></div></div></div>
+<div class="mt-done" hidden><div class="mt-big"></div><div class="mt-info">
+<p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
+<div class="mt-acts"><button class="btn filled mt-play" type="button">Play</button><button class="btn filled mt-share" type="button">Share</button><button class="btn filled mt-keep" type="button">Keep this tape</button><button class="btn tonal mt-again" type="button">Make another</button></div>
+<p class="mt-extra"></p>
+<p class="mt-links"><button type="button" class="mt-lk mt-link">Copy link</button><button type="button" class="mt-lk mt-card">Download card</button><button type="button" class="mt-lk mt-edit">Change it</button><button type="button" class="mt-lk mt-del">Delete</button></p>
+<p class="mt-note2" aria-live="polite"></p></div></div>`;
 face.after(mt);
 const mtQ=sel=>mt.querySelector(sel);
 function mtIsSaved(){return !!(mtTape&&mtTape.id&&S.tapes.includes(mtTape));}
 function mtId(){return mtIsSaved()?'tape:'+mtTape.id:'tape:draft';}
-function paintMixtape(){if(!mtTape)return;const tp=mtTape;mtQ('.mt-cass').innerHTML=cassetteSVG(tp,mtPhase);
-  if(document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=tp.n;
-  mt.querySelectorAll('.mt-seg button').forEach(b=>b.setAttribute('aria-pressed',String(tp[b.dataset.k]===+b.dataset.v)));
-  mt.querySelectorAll('.mt-sw button').forEach(b=>b.setAttribute('aria-pressed',String(tp.c===+b.dataset.c)));
-  const saved=mtIsSaved();mtQ('.mt-save').hidden=saved;mtQ('.mt-del').hidden=!saved;queueCard();
-  mtQ('.mt-note').textContent=saved?'Saved in this browser only. Copy the link to keep a backup or move it to another device.':'Not saved yet, but it’s kept if you refresh. Copy the link to share it or keep a backup.';}
+let mtView='build',draftIn=false; /* draftIn: the unsaved tape came from someone's link */
+function paintMixtape(){if(!mtTape)return;const tp=mtTape,saved=mtIsSaved(),done=mtView==='done';
+  mtQ('.mt-build').hidden=done;mtQ('.mt-done').hidden=!done;
+  mtQ('.mt-sub').textContent=done?(saved?'Your tape. It’s on the dial under Your mixtapes.':'Someone sent you a tape. Keep it to play it any time.'):(saved?'Changes save as you go.':'Pick a vibe, a mood and a groove. You’ll hear each choice right away.');
+  if(done){mtQ('.mt-big').innerHTML=cassetteSVG(tp,mtPhase);mtQ('.mt-title').textContent=tp.n;mtQ('.mt-freq').textContent=(tp.f/10).toFixed(1)+' FM';
+    mtQ('.mt-recipe').textContent=VIBES[tp.v]+' · '+MOODS[tp.m]+' · '+GROOVES[tp.g];
+    mtQ('.mt-extra').textContent=RECS[tp.s]+(tp.w?' · '+WEATHERS[tp.w]:'')+(saved?' · Saved in this browser. The link is your backup.':'');
+    const on=gen&&gen.id===mtId();mtQ('.mt-play').textContent=on?'Stop':'Play';mtQ('.mt-play').setAttribute('aria-pressed',String(!!on));
+    mtQ('.mt-share').hidden=!saved;mtQ('.mt-keep').hidden=saved;mtQ('.mt-link').hidden=!saved;mtQ('.mt-card').hidden=!saved;mtQ('.mt-del').hidden=!saved;mtQ('.mt-again').textContent=saved?'Make another':'Make your own';
+    if(saved)queueCard();}
+  else{mtQ('.mt-cass').innerHTML=cassetteSVG(tp,mtPhase);if(document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=tp.n;
+    mt.querySelectorAll('.mt-seg button').forEach(b=>b.setAttribute('aria-pressed',String(tp[b.dataset.k]===+b.dataset.v)));
+    mt.querySelectorAll('.mt-sw button').forEach(b=>b.setAttribute('aria-pressed',String(tp.c===+b.dataset.c)));
+    mtQ('.mt-make').textContent=saved?'Done':'Make tape';
+    mtQ('.mt-note').textContent=saved?'':'It’s playing as you go. Make the tape to keep it and share it.';}}
+function mtShow(v){mtView=v;mtQ('.mt-note2').textContent='';paintMixtape();}
+window.__mtPaint=()=>{if(!mt.hidden&&mtView==='done'&&mtTape){const on=gen&&gen.id===mtId();mtQ('.mt-play').textContent=on?'Stop':'Play';mtQ('.mt-play').setAttribute('aria-pressed',String(!!on));}}; /* keeps Play/Stop right when the radio changes elsewhere */
 /* hear a change: small ones adjust the running music, bigger ones re-cut the tape with a short fade */
 let mtRecut=null;
 function mtApply(structural){const id=mtId();if(mtIsSaved())save();else keepDraft();S.stationName=mtTape.n;dirty=true;
   if(gen&&gen.id===id){if(structural){clearTimeout(mtRecut);mtRecut=setTimeout(()=>{if(S.station===id&&gen&&gen.id===id)genStart(id,.35);},structural==='slow'?1100:90);}else if(gen.snd&&gen.snd.update)gen.snd.update(mtTape);}
   fillStations();paintMixtape();}
-function openMixtape(edit){const cur=tapeOf(S.station);
-  if(edit&&cur)mtTape=cur;
-  else if(draft&&S.station==='tape:draft')mtTape=draft;
+function newDraft(from){draftIn=false;draft=cleanTape(from);mtTape=draft;keepDraft();setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
+function openMixtape(edit){const cur=tapeOf(S.station);mtView='build';
+  if(edit&&cur){mtTape=cur;if(cur!==draft||draftIn)mtView='done';}
+  else if(draft&&S.station==='tape:draft'){mtTape=draft;if(draftIn)mtView='done';}
   else{const FROM={'gen:late':{v:0,m:2,g:1,s:1,w:0},'gen:window':{v:0,m:1,g:0,s:1,w:1},'gen:crt':{v:4,m:1,g:1,s:0,w:0},'gen:sunday':{v:1,m:0,g:1,s:2,w:4},'gen:desert':{v:3,m:2,g:0,s:0,w:0},
       'gen:rain':{w:1},'gen:waves':{w:2},'gen:fire':{w:3},'gen:purr':{w:4}}; /* start from something close to what was playing */
-    draft=cleanTape(Object.assign({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),v:1,m:0,g:1,s:2,w:0},FROM[S.station]||{}));
-    mtTape=draft;keepDraft();setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
+    newDraft(Object.assign({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),v:1,m:0,g:1,s:2,w:0},FROM[S.station]||{}));}
   mt.hidden=false;if(!S.mtSeen)seenMixtape();paintMixtape();startSpin();paintMixKey();mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
 function closeMixtape(){mt.hidden=true;stopSpin();paintMixKey();}
 const mixKey=$('mixKey');function paintMixKey(){mixKey.setAttribute('aria-pressed',String(!mt.hidden));mixKey.title=mt.hidden?'Make a mixtape':'Close the mixtape deck';mixKey.classList.toggle('pulse',!S.mtSeen&&mt.hidden);}
@@ -728,19 +747,25 @@ teaser.querySelector('.mt-tz-go').addEventListener('click',()=>{seenMixtape();op
 teaser.querySelector('.mt-tz-x').addEventListener('click',seenMixtape);
 if(!BC&&!S.mtSeen&&!new URLSearchParams(location.search).get('tape')){teaser.hidden=false;drawTeaser();if(!matchMedia('(prefers-reduced-motion: reduce)').matches)teaserT=setInterval(()=>{teaserPh++;drawTeaser();},450);}
 paintMixKey();
-mixKey.addEventListener('click',()=>{if(!mt.hidden){closeMixtape();return;}seenMixtape();const cur=tapeOf(S.station);openMixtape(!!cur&&S.station!=='tape:draft');});
-function startSpin(){stopSpin();mtSpin=setInterval(()=>{if(mt.hidden||!mtTape)return;if(gen&&gen.id===mtId()){mtPhase=(mtPhase+1)%8;mtQ('.mt-cass').innerHTML=cassetteSVG(mtTape,mtPhase);}},260);} /* the reels turn while the tape plays */
+mixKey.addEventListener('click',()=>{if(!mt.hidden){closeMixtape();return;}seenMixtape();openMixtape(!!tapeOf(S.station));});
+function startSpin(){stopSpin();mtSpin=setInterval(()=>{if(mt.hidden||!mtTape)return;if(gen&&gen.id===mtId()){mtPhase=(mtPhase+1)%8;mtQ(mtView==='done'?'.mt-big':'.mt-cass').innerHTML=cassetteSVG(mtTape,mtPhase);}},260);} /* the reels turn while the tape plays */
 function stopSpin(){clearInterval(mtSpin);mtSpin=null;}
 mtQ('.mt-x').addEventListener('click',closeMixtape);
 mt.addEventListener('click',e=>{const b=e.target.closest('.mt-seg button');if(b&&mtTape){const k=b.dataset.k,v=+b.dataset.v;if(mtTape[k]===v)return;mtTape[k]=v;mtApply(k!=='s');}
   const c=e.target.closest('.mt-sw button');if(c&&mtTape){mtTape.c=+c.dataset.c;mtApply(false);}});
 mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply('slow'),250);}); /* the name is the tune: a new name re-cuts the tape once you stop typing */
-mtQ('.mt-save').addEventListener('click',()=>{if(!mtTape||mtIsSaved())return;if(S.tapes.length>=TAPE_MAX){mtQ('.mt-note').textContent='You can keep '+TAPE_MAX+' mixtapes. Delete one to save this.';return;}
-  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.draft=null;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();paintMixtape();mtQ('.mt-note').textContent='Saved. It’s in the station list under Your mixtapes.';});
+function keepTape(){if(!mtTape)return;if(mtIsSaved()){mtShow('done');return;}
+  if(S.tapes.length>=TAPE_MAX){const m='You can keep '+TAPE_MAX+' mixtapes. Delete one to make room.';mtQ('.mt-note').textContent=m;mtQ('.mt-note2').textContent=m;return;}
+  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.draft=null;draftIn=false;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();mtShow('done');}
+mtQ('.mt-make').addEventListener('click',keepTape);mtQ('.mt-keep').addEventListener('click',keepTape);
+mtQ('.mt-edit').addEventListener('click',()=>mtShow('build'));
+mtQ('.mt-again').addEventListener('click',()=>{const tp=mtTape||{};newDraft({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),v:tp.v,m:tp.m,g:tp.g,s:tp.s,w:tp.w});mtShow('build');mtQ('.mt-name').focus();mtQ('.mt-name').select();});
+mtQ('.mt-play').addEventListener('click',()=>{if(!mtTape)return;const id=mtId();if(gen&&gen.id===id)stopRadio();else{if(S.station!==id)setStation({id,name:mtTape.n});if(!gen)playRadio();}paintMixtape();});
 mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;closeMixtape();
   if(S.station===id){const was=!!gen;S.station='gen:purr';S.stationName='Purr';if(was){genStop(false);setTimeout(()=>genStart('gen:purr'),500);}}save();fillStations();});
-mtQ('.mt-link').addEventListener('click',async()=>{if(!mtTape)return;const url=tapeURL(mtTape);
-  let ok=false;try{await navigator.clipboard.writeText(url);ok=true;}catch(e){}const b=mtQ('.mt-link');b.textContent=ok?'Link copied':'Copy failed';if(!ok)mtQ('.mt-note').textContent=url;setTimeout(()=>b.textContent='Copy link',1600);});
+async function copyTapeLink(b,label){if(!mtTape)return;const url=tapeURL(mtTape);let ok=false;try{await navigator.clipboard.writeText(url);ok=true;}catch(e){}
+  b.textContent=ok?'Link copied':'Copy failed';mtQ('.mt-note2').textContent=ok?'Paste it anywhere. Whoever opens it hears your tape.':url;setTimeout(()=>b.textContent=label,1600);}
+mtQ('.mt-link').addEventListener('click',e=>copyTapeLink(e.currentTarget,'Copy link'));
 /* ROLL TAPE: a random recipe that still sounds like Loaf FM, then tweak it from there */
 const RN={a:['Rainy','Sleepy','Midnight','Sunday','Velvet','Dusty','Neon','Quiet','Lazy','Foggy','Late','Tiny','Soft','Static','Moonlit','Cozy','Slow','Hazy','Blue','Golden','Drowsy','Purring'],
   n:['Loaf','Window','Radiator','Bus Ride','Laundromat','Kitchen','Box','Sunbeam','Hallway','Diner','Parking Lot','Couch','Tuesday','Library','Fish Market','Rooftop','Basement','Porch','Night Train','Motel','Bakery','Arcade','Blanket','Nap','Bodega','Car Wash'],
@@ -752,7 +777,7 @@ function rollRecipe(){return {v:rr(0,4),m:rr(0,2),g:rp([0,1,1,2]),s:rp([0,1,1,2,
 mtQ('.mt-roll').addEventListener('click',()=>{if(!mtTape)return;const r=rollRecipe(),keepName=mtTape.n&&!/^(My|Untitled) mixtape$/.test(mtTape.n)&&mtTape.n!==rolledName;
   r.n=keepName?mtTape.n:(rolledName=rollName());
   if(mtIsSaved()){ /* a saved tape stays as it was; the roll starts a new, unsaved one */
-    draft=cleanTape(r);mtTape=draft;keepDraft();setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();fillStations();paintMixtape();}
+    newDraft(r);fillStations();paintMixtape();}
   else{Object.assign(mtTape,r);if(S.station!=='tape:draft')setStation({id:'tape:draft',name:mtTape.n});mtApply(true);if(!gen)playRadio();}
   const b=mtQ('.mt-roll');b.classList.remove('rolled');void b.offsetWidth;b.classList.add('rolled');});
 /* the share card: the tape, its spot on the dial, the board and Loafie, as a PNG to post or send.
@@ -781,8 +806,7 @@ let tcBlob=null,tcKey='',tcT=null;
 function queueCard(){clearTimeout(tcT);tcT=setTimeout(async()=>{if(!mtTape||mt.hidden)return;const k=JSON.stringify(mtTape);const bl=await tapeCard(mtTape);if(mtTape&&JSON.stringify(mtTape)===k){tcBlob=bl;tcKey=k;}},700);}
 async function tapeCardNow(){const k=JSON.stringify(mtTape);if(tcBlob&&tcKey===k)return tcBlob;tcBlob=await tapeCard(mtTape);tcKey=k;return tcBlob;}
 const slug=n=>(n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'mixtape')+'-loaffm.png';
-if(navigator.share&&!BC)mtQ('.mt-share').hidden=false;
-mtQ('.mt-share').addEventListener('click',async()=>{if(!mtTape)return;const url=tapeURL(mtTape),title=mtTape.n+' · Loaf FM',text='“'+mtTape.n+'”, a mixtape on Loaf FM ('+(mtTape.f/10).toFixed(1)+' FM).';
+mtQ('.mt-share').addEventListener('click',async e=>{if(!mtTape||!mtIsSaved())return;if(!navigator.share){copyTapeLink(e.currentTarget,'Share');return;}const url=tapeURL(mtTape),title=mtTape.n+' · Loaf FM',text='“'+mtTape.n+'”, a mixtape on Loaf FM ('+(mtTape.f/10).toFixed(1)+' FM).';
   let data={title,text,url};
   try{const bl=tcBlob&&tcKey===JSON.stringify(mtTape)?tcBlob:null;if(bl){const f=new File([bl],slug(mtTape.n),{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]}))data={title,text:text+' '+url,files:[f]};}}catch(e){}
   try{await navigator.share(data);}catch(e){if(e&&e.name==='AbortError')return;try{await navigator.share({title,text,url});}catch(e2){}}});
@@ -790,7 +814,7 @@ mtQ('.mt-card').addEventListener('click',async()=>{if(!mtTape)return;const b=mtQ
 window.loafCard=tapeCard; /* used to draw the site's own preview image */
 /* someone opened a mixtape link: load it as an unsaved tape, ready to play and keep */
 if(!BC&&new URLSearchParams(location.search).get('tape')){const tp=decodeTape(new URLSearchParams(location.search).get('tape'));
-  if(tp){if(draft&&S.tapes.length<TAPE_MAX&&JSON.stringify(draft)!==JSON.stringify(tp)){draft.id=Date.now().toString(36);S.tapes.push(draft);}draft=tp;keepDraft();S.station='tape:draft';S.stationName=tp.n;fillStations();openMixtape(false);say('Mixtape: press play');}
+  if(tp){if(draft&&S.tapes.length<TAPE_MAX&&JSON.stringify(draft)!==JSON.stringify(tp)){draft.id=Date.now().toString(36);S.tapes.push(draft);}draft=tp;keepDraft();S.station='tape:draft';S.stationName=tp.n;fillStations();openMixtape(false);draftIn=true;mtShow('done');say('Mixtape: press play');}
   try{const u=new URL(location.href);u.searchParams.delete('tape');history.replaceState(history.state,'',u.pathname+u.search+u.hash);}catch(e){}}
 /* ================= Material colour scheme from the palette seed ================= */
 const lin=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);};
@@ -825,7 +849,13 @@ function drawPalTile(cv,p,on){const d=Math.min(window.devicePixelRatio||1,2),pt=
   for(let y=0;y<4;y++)for(let x=0;x<6;x++){const lit=y>0&&y<3;g.beginPath();g.arc((x+.5)*pt,(y+.5)*pt,pt*.36,0,Math.PI*2);
     if(lit){g.fillStyle=cols[x];g.globalAlpha=on?1:.6;g.shadowColor=cols[x];g.shadowBlur=on?4*d:0;}else{g.globalAlpha=1;g.shadowBlur=0;g.fillStyle=p.off;}g.fill();}g.globalAlpha=1;g.shadowBlur=0;}
 Object.entries(PALETTES).forEach(([id,p])=>{const b=document.createElement('button');b.type='button';b.className='swatch';b.dataset.pal=id;b.setAttribute('aria-pressed','false');b.setAttribute('aria-label',p.name);b.title=p.name;
-  const cv=document.createElement('canvas');cv.setAttribute('aria-hidden','true');b.appendChild(cv);b._cv=cv;b._p=p;b.addEventListener('click',()=>{S.palette=id;save();paintKeys();layout();});dotsEl.appendChild(b);});
+  const cv=document.createElement('canvas');cv.setAttribute('aria-hidden','true');b.appendChild(cv);const nm=document.createElement('span');nm.textContent=p.name;b.appendChild(nm);b._cv=cv;b._p=p;b.addEventListener('click',()=>{S.palette=id;save();paintKeys();layout();});dotsEl.appendChild(b);});
+/* DISPLAY: palette and brightness, one level down, in a little panel under the key */
+const dispKey=$('dispKey'),dispPanel=$('dispPanel');
+function setDisp(open){dispPanel.hidden=!open;dispKey.setAttribute('aria-expanded',String(open));}
+dispKey.addEventListener('click',e=>{e.stopPropagation();setDisp(dispPanel.hidden);});
+document.addEventListener('click',e=>{if(!dispPanel.hidden&&!e.target.closest('#dispWrap,#dispPanel'))setDisp(false);});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!dispPanel.hidden){setDisp(false);dispKey.focus();}}); /* Escape closes the panel; it's not a shortcut for anything else */
 const playKey=$('playKey');
 playKey.addEventListener('click',()=>{if(gen){stopRadio();return;}playRadio();
   if(!cat.inBox&&!cat.eat&&!cat.purr&&!cat.goBox&&(cat.state==='sit'||cat.state==='act'))act((performance.now()-t0)/1000,'loaf');}); /* press play and she settles into a loaf */
@@ -835,8 +865,8 @@ function applyVol(){if(gen)gen.master.gain.setTargetAtTime(vol()*levelOf(gen.id)
 function setMuted(m){muted=!!m;applyVol();dirty=true;paintKeys();}
 const muteKey=$('muteKey');muteKey.addEventListener('click',()=>setMuted(!muted));
 volEl.addEventListener('input',()=>{S.volume=+volEl.value;muted=false;applyVol();paintKeys();save();});
-function paintKeys(){applyScheme();
-  dotsEl.querySelectorAll('.swatch').forEach(b=>{const on=b.dataset.pal===S.palette;b.setAttribute('aria-pressed',String(on));drawPalTile(b._cv,b._p,on);});
+function paintKeys(){applyScheme();if(window.__mtPaint)window.__mtPaint();
+  dotsEl.querySelectorAll('.swatch').forEach(b=>{const on=b.dataset.pal===S.palette;b.setAttribute('aria-pressed',String(on));drawPalTile(b._cv,b._p,on);});drawPalTile($('dispTile'),PALETTES[S.palette]||PALETTES.pegs,true);
   const on=!!gen;playKey.setAttribute('aria-pressed',String(!!on));playKey.title=on?'Stop':'Play';
   if(typeof paintPipMute==='function')paintPipMute(!!on);
   $('brightnessOut').textContent=Math.round(S.brightness*100);$('volOut').textContent=muted?'Muted':Math.round(S.volume*100);
@@ -918,19 +948,32 @@ const SOUTH=(()=>{try{return /^(Australia|Antarctica|Pacific\/(Auckland|Chatham|
 function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'winter':m<5?'spring':m<8?'summer':'autumn';}
 function dayRand(d){let h=d.getFullYear()*400+d.getMonth()*32+d.getDate();h=Math.imul(h^h>>>15,2246822507);h=Math.imul(h^h>>>13,3266489909);return ((h^h>>>16)>>>0)/4294967296;}
 function isNight(d){if(NIGHT_FORCE)return true;const h=d.getHours();return h>=20||h<6;}
-function skyKind(d){if(SKY_FORCE)return SKY_FORCE;if(gen&&(gen.id==='gen:rain'||gen.id==='gen:window'||(tapeOf(gen.id)||{}).w===1))return 'rain'; /* play rain and it rains on her desk */const s=season(d),r=dayRand(d);
+/* while something plays, the sky goes with it; otherwise it follows the season and the day */
+const STATION_SKY={'gen:window':'rain','gen:rain':'rain','gen:late':'stars','gen:desert':'stars','gen:waves':'stars','gen:fire':'stars','gen:crt':'matrix','gen:sunday':'leaves','gen:purr':'plain','gen:brown':'plain'};
+function skyKind(d){if(SKY_FORCE)return SKY_FORCE;
+  if(gen){if(STATION_SKY[gen.id])return STATION_SKY[gen.id];const tp=tapeOf(gen.id);
+    if(tp)return tp.w===1?'rain':tp.w===2||tp.w===3?'stars':tp.w===4?'plain':['stars','leaves','stars','stars','matrix'][tp.v];} /* a tape: its weather, or its band */
+  const s=season(d),r=dayRand(d);
   if(s==='winter')return r<.45?'snow':r<.6?'rain':'clear';
   if(r<.18)return 'rain';
   return s==='autumn'?'leaves':s==='spring'?'petals':isNight(d)?'fireflies':'clear';}
 function moonPhase(d){const p=((d.getTime()-Date.UTC(2000,0,6,18,14))/864e5/29.530588853)%1;return p<0?p+1:p;}
 function put(x,y,c){x=Math.round(x);y=Math.round(y);if(x>=0&&x<W&&y>=0&&y<13)gfb[(y+2)*W+x]=c;} /* the sky sits in the 13 rows above the desk */
 function drawSky(t,P,now){const peg=k=>[P.A,P.HI,P.FISH,P.S2][k],kind=skyKind(now);
-  if(isNight(now)){
-    for(let i=0;i<9;i++){const sx=(i*23+Math.floor(t*(.3+i*.15)))%W;put(W-1-sx,(i*5)%9,dim(i%4?P.HI:P.FISH,i%4?.38:.5));} /* stars, one in four warm */
+  if(isNight(now)||kind==='stars'){
+    for(let i=0;i<(kind==='stars'?14:9);i++){const sx=(i*23+Math.floor(t*(.3+i*.15)))%W;put(W-1-sx,(i*5)%9,dim(i%4?P.HI:P.FISH,i%4?.38:.5));} /* stars, one in four warm */
     const p=moonPhase(now),mx=118,my=4,r=3.4;
     for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){if(dx*dx+dy*dy>r*r)continue;const w=Math.sqrt(r*r-dy*dy),c=Math.cos(2*Math.PI*p)*w,ex=SOUTH?-dx:dx;
       const lit=p<.5?ex>c-.5:ex<-c+.5,crater=(dx===-1&&dy===-1)||(dx===1&&dy===1)||(dx===2&&dy===-1)||(dx===-1&&dy===2);put(mx+dx,my+dy,lit?(crater?dim(P.HI,.55):P.HI):dim(P.DEEP,.8));}} /* a few craters so it reads as the moon */
-  if(kind==='rain'){const rc=P.PEG?P.PEG[4]:peg(3);for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(rc,.6));put(x+.5,y-1,dim(rc,.25));}} /* rain is blue on the pegboard */
+  if(kind==='stars'){ /* now and then a meteor: a bright head and a fading tail, across and down */
+    const per=11,k=Math.floor(t/per),ph=t-k*per,h=Math.abs(Math.sin(k*91.7+3.1)*43758.5)%1;
+    if(h<.75&&ph<1){const x0=12+h*85,y0=Math.floor(h*10)%3,q=ph;for(let j=0;j<7;j++){const qq=q-j*.035;if(qq<0)continue;put(x0+qq*30,y0+qq*8,dim(P.HI,(1-j/7)*(q<.8?1:(1-q)*5)));}}}
+  else if(kind==='matrix'){ /* CRT: falling code that wobbles sideways, and a scanline glitch now and then */
+    const cc=P.PEG?P.PEG[3]:P.A,wob=Math.round(Math.sin(t*2.3)*Math.sin(t*.7)*1.4);
+    for(let i=0;i<(RM.matches?5:9);i++){const sp=3+(i*7%5),x=(i*14+5+wob+W)%W,head=(t*sp+i*5.3)%19-3;
+      for(let j=0;j<4;j++){const y=Math.floor(head)-j;if(y>=0&&y<13)put(x,y,dim(cc,j?.55-j*.12:.95));}}
+    const g=t%6.5;if(g<.18){const y=Math.floor((t*7)%13);for(let x=0;x<W;x+=2)put(x+(Math.floor(t*40)%2),y,dim(cc,.35));}}
+  else if(kind==='rain'){const rc=P.PEG?P.PEG[4]:peg(3);for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(rc,.6));put(x+.5,y-1,dim(rc,.25));}} /* rain is blue on the pegboard */
   else if(kind==='snow')for(let i=0;i<(RM.matches?7:14);i++){const y=(t*2.2+i*3.7)%13,x=(i*9.1+Math.sin(t*.8+i)*2.2+W)%W;put(x,y,dim(P.HI,.8));}
   else if(kind==='leaves')for(let i=0;i<(RM.matches?4:8);i++){const y=(t*1.6+i*2.9)%13,sw=Math.sin(t*1.1+i*2),x=((i*16.3+sw*4+t*1.5)%W+W)%W,c=dim(peg([0,2,0,2,1,0,2,0][i]),.85);put(x,y,c);put(x+1,y+(sw>0?1:-1),dim(c,.6));} /* two-dot leaves that tumble as they fall */
   else if(kind==='petals')for(let i=0;i<(RM.matches?5:9);i++){const y=(t*1.3+i*2.1)%13,sw=Math.sin(t*.9+i*1.7),x=((i*14.7+sw*5+t*1.2)%W+W)%W,c=i%3?0xff9ec4:dim(P.C,.7);put(x,y,c);if(sw>.3)put(x+1,y,dim(c,.5));}
@@ -944,6 +987,7 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
   for(let x=0;x<W;x++){const major=x%4===0;gfb[(ground+1)*W+x]=P.PEG?-1:P.DEEP;
     if(major&&sp&&sp.ph!=='done'){const k=x>>2;gfb[ground*W+x]=k<pegsLit?(sp.ph==='rest'?dim(P.HI,.6+.4*pulse):P.HI):k===pegsLit?dim(P.HI,.25+.5*pulse):P.DEEP;continue;} /* while you sit, the pegs light one by one */
     gfb[ground*W+x]=P.PEG?dim(P.PEG[(x>>2)%P.PEG.length],major?1:.8):major?P.S2:P.MID;} /* the desk edge (on the pegboard, a rainbow line of pegs, four of each colour) */
+  drawKeys(P,ground);
   for(const tr of treats){if(tr.y<ground-3){tr.vy+=70*dt;tr.y=Math.min(ground-3,tr.y+tr.vy*dt);if(tr.y>=ground-3)plip();} /* the treat drops onto the desk */
     const bite=cat.state==='eat'&&cat.eat===tr?clamp((cat.until-t)/EAT_S,0,1):1;if(bite>0)blit(FISH,Math.round(tr.x),Math.round(tr.y),dim(P.FISH,.35+.65*bite),true,true);}
   const on=playing();const cx=Math.round(cat.x);
@@ -969,6 +1013,17 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
   BOX.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch!=='.')gfb[(ground-7+j)*W+BOX_X+i]=BOXC[ch];}}); /* the box goes in front of her */
   for(const hh of cat.hearts){hh.y-=dt*4;hh.x+=hh.dx*dt;hh.a-=dt*.35;if(hh.a>0)blit(HEART,Math.round(hh.x),Math.round(hh.y),dim(P.A,Math.max(.25,hh.a)));}
   cat.hearts=cat.hearts.filter(hh=>hh.a>0&&hh.y>-4);}
+/* She lives on the synth. Under the desk edge are 32 white keys, four dots each (three lit, one gap), C2 up to G6.
+   The gaps under the top row are filled where a black key sits, so the 2-and-3 pattern shows once you look.
+   Each note the music plays lights its key for a moment (folded into range by octaves). */
+const WHITE=[0,-1,1,-1,2,3,-1,4,-1,5,-1,6],BLACK_AFTER=[1,1,0,1,1,1,0]; /* white index per pitch class; is there a black key after each white key */
+function drawKeys(P,ground){const r1=ground+1,r2=ground+2;if(r2>=GH)return;const face=P.PEG?dim(0xffffff,.15):dim(P.HI,.15),blk=P.PEG?dim(0xffffff,.05):dim(P.HI,.055),now=actx?actx.currentTime:0,lit=new Map();
+  for(let i=0;i<keyHits.length;i+=2){const dt=now-keyHits[i];if(dt<0||dt>.45)continue;let m=keyHits[i+1];while(m<36)m+=12;while(m>79)m-=12;const lv=1-dt/.45;if(lv>(lit.get(m)||0))lit.set(m,lv);}
+  for(let k=0;k<32;k++){const x=k*4;for(let i=0;i<3;i++){gfb[r1*W+x+i]=face;gfb[r2*W+x+i]=face;}
+    gfb[r2*W+x+3]=-1;gfb[r1*W+x+3]=BLACK_AFTER[k%7]?blk:-1;}
+  for(const [m,lv] of lit){const pc=m%12,oc=Math.floor((m-36)/12),wi=WHITE[pc],col=P.PEG?P.PEG[(m*5)%P.PEG.length]:P.HI;
+    if(wi>=0){const k=oc*7+wi;if(k>31)continue;const x=k*4,c=dim(col,.35+.65*lv);for(let i=0;i<3;i++){gfb[r1*W+x+i]=c;gfb[r2*W+x+i]=c;}}
+    else{const k=oc*7+WHITE[pc-1];if(k>31)continue;gfb[r1*W+k*4+3]=dim(col,.45+.55*lv);}}}
 /* touch: tap her to pet (she purrs while you hold); tap the desk and she mews and walks over */
 function ensureAudio(){actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx;}
 function purrStart(){if(purrNode)return;try{const a=ensureAudio();const o=a.createOscillator();o.type='sawtooth';o.frequency.value=27;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=140;
