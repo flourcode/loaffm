@@ -160,7 +160,7 @@
     cfg.rot=STATIONS.map(([k])=>k).filter(k=>f['rot_'+k].checked);try{localStorage.setItem(KEY,JSON.stringify(cfg));}catch(e){}}
 
   function tapeCode(){const v=(cfg.tape||'').trim();if(!v)return '';const m=v.match(/[?&]tape=([A-Za-z0-9_-]+)/);const c=m?m[1]:(/^[A-Za-z0-9_-]+$/.test(v)?v:'');return c;}
-  function tapeName(c){try{const a=JSON.parse(decodeURIComponent(escape(atob(c.replace(/-/g,'+').replace(/_/g,'/')))));return Array.isArray(a)&&a[0]===1?String(a[1]).slice(0,24):'';}catch(e){return '';}}
+  function tapeName(c){try{const a=JSON.parse(decodeURIComponent(escape(atob(c.replace(/-/g,'+').replace(/_/g,'/')))));return Array.isArray(a)&&(a[0]===1||a[0]===2)?String(a[1]).slice(0,24):'';}catch(e){return '';}}
   function address(preview){const p=new URLSearchParams();p.set('broadcast',cfg.mode);const tc=tapeCode();
     if(tc){p.set('tape',tc);}else if(cfg.rotateOn&&cfg.rot.length>1){p.set('stations',cfg.rot.join(','));p.set('rotate',cfg.rotate);p.set('station',cfg.rot.includes(cfg.station)?cfg.station:cfg.rot[0]);}else p.set('station',cfg.station);
     p.set('palette',cfg.palette);

@@ -2,7 +2,7 @@
 
 A tiny pixel cat named Loafie who keeps you company while you work: an LED clock radio playing its own generated lofi music, with a cat on the desk who wanders, naps, watches her own little sky, and purrs when you pet her.
 
-Plain static files. No build step, no server code, no API keys, no cookies, no analytics, no location.
+Plain static files. No build step, no server code, no API keys, no location. Google Analytics counts visits (cookieless in the EEA, UK and Switzerland, and off for Do Not Track / Global Privacy Control); see `analytics.js` and the privacy page.
 
 ## Put it online
 
@@ -69,9 +69,9 @@ Besides walking, sitting and sleeping she has a few idle moments, picked at rand
 
 Tuned for focus, following the listening research: few sudden changes (changing-state sounds are what disrupt concentration most), moderate tempos (58–80 BPM) and levels (fast and loud music is what hurts reading comprehension), no tremolo near 4 Hz (where wavering sounds grab attention most) and no buzzy 15–300 Hz flutter, a darker top end, sparse and mostly stepwise melodies, drums with loose human timing that fade in and out over a couple of bars instead of switching on and off.
 
-## Turning on analytics
+## Analytics
 
-The privacy page already describes Google Analytics. To switch it on, paste your GA4 Measurement ID into `GA_MEASUREMENT_ID` in `analytics.js`, and deploy. In the GA4 data stream, leave enhanced measurement's "Page changes based on browser history events" on (that counts pages swapped in without a reload), turn Google Signals off, and set data retention to the minimum you need. Until the ID is set, analytics.js does nothing.
+Google Analytics is on, with Measurement ID `G-0Y62CW4XDM` in `GA_MEASUREMENT_ID` in `analytics.js`; the privacy page describes it. To turn it off, empty that value and deploy. In the GA4 data stream, leave enhanced measurement's "Page changes based on browser history events" on (that counts pages swapped in without a reload), turn Google Signals off, and set data retention to the minimum you need.
 
 ## Deploying an update
 
@@ -108,4 +108,22 @@ Deliberately none (no Space, M or Z): people type in other windows, especially a
 
 ## Mixtapes
 
-`+ Make a mixtape…` in the station list opens the deck inside the case (`openMixtape()` in board.js). A mixtape is a recipe for the generative engine: base station, mood (chord set), drums, weather layer, speed (50–100 BPM), notes (how much melody, comping, bass fills and hi-hat; on tapes only) and tone (a two-stage low-pass from 650 Hz to 6.5 kHz, with hiss and tape wobble following it), plus a name and label color (`tapeStyle()` turns it into a style). Tone changes instantly; speed, notes, drums and mood land within a few seconds, because tapes schedule only about 3 s ahead (`music().update()`). A tape also skips the long intro so the sliders have something to act on right away; a new base or weather re-cuts it with a short fade. New tapes are drafts until saved; saved tapes (up to 10, in localStorage) save as you edit. Copy link encodes the recipe as `?tape=…` (base64url JSON, validated and clamped on load, name rendered as text only). Broadcast mode accepts `&tape=…` too, and the studio page has a field to paste a mixtape link. Each tape gets a free frequency when it's made (stored as `f`, carried in links), so renaming it doesn't move it on the dial. A new mixtape starts playing as soon as it's created; a shared link waits for a tap on play, as browsers require. The cassette is drawn in LED dots with Loafie in the window; the reels turn while it plays.
+`+ Make a mixtape…` in the station list opens the deck inside the case (`openMixtape()` in board.js). A mixtape is five choices plus a name and a label color: **vibe** (`v`: Lo-fi, Bossa Nova, House, Ambient, 8-bit), **mood** (`m`: Sunny, Moody, Late Night), **groove** (`g`: Lazy, Pocket, Move), **sound** (`s`: Studio, Cassette, Vinyl, Next Room) and **weather** (`w`: none, rain, ocean, fire, purr). Tapes are played by `band()`, separate from the five stations' `music()`:
+
+- **Bands** (`BANDS`): each vibe has its own instruments and patterns. Lo-fi is the stations' electric piano, boom-bap and round bass. Bossa Nova is a nylon guitar (Karplus-Strong plucked strings, three takes per note, tuned for the loop's N−½-sample period: the thumb on root and fifth, the fingers on the clave rhythm, anticipating the next chord), shaker, rim click, a soft kick and flute. House is restrained deep house: four on the floor, quiet offbeat open hats, claps (a rim click when Lazy), a sub bass between the kicks, soft organ chord stabs (Rhodes when Sunny) with a gentle pump on every kick, and a mallet lead with a dotted echo. Ambient has no drums: long pads, a low drone, a few glassy notes and a five-second room. 8-bit is pulse-wave arpeggios and lead (with the old fake echo), a triangle bass and stepped-noise drums.
+- **Mood** picks the scale and chord progressions for that band (Sunny is major/Lydian, Moody minor, Late Night jazzier changes or Dorian), and Late Night is also 10% slower, four semitones lower, darker and roomier, with fewer hi-hats.
+- **Groove** picks the tempo and swing per band (lo-fi 72/82/90 BPM, bossa 110/124/138, house 114/120/124, ambient 52/60/68, 8-bit 92/116/136) and how busy the drums, bass and comping are.
+- **Sound** is the recording chain after the band (`RECORDING`): drive into a tanh saturator, high-pass, two low-passes, a low shelf, a compressor, plus hiss, vinyl crackle, and tape wow and flutter from a short delay whose time drifts (so drums and noise wobble too, as on real tape). It changes live (`update()`), with no restart. **Weather** goes straight to the output, not through the recording: it's in your room, not on the tape.
+- **The name is the tune.** The name (lowercased) seeds the key, the two chord progressions (the A and B sections of each 32 bars) and a two-bar hook (`makeHook()`): a short cell, the same cell moved a step, and a long note to land on. The hook plays every 8 bars, fitted to whatever chord is under it, and the players improvise little phrases made from it in between, so a tape is recognisably the same every time without ever looping. The same name in a different band plays the same tune.
+- Every 32 bars there's a four-bar breakdown (drums out). Changing vibe, mood, groove or weather re-cuts the tape with a quick crossfade; renaming re-cuts once you stop typing.
+- Levels: each band (`TAPE_LEVEL`) and each sound (`REC_LEVEL`) is matched by measured loudness (approximate K-weighting) to the stations, and the weather layers are scaled to stay as loud as on the stations.
+
+New tapes are drafts until saved; saved tapes (up to 10, in localStorage) save as you edit. Copy link encodes the recipe as `?tape=…` (base64url JSON `[2,name,color,v,m,g,s,w,freq]`, validated and clamped on load, name rendered as text only). Version 1 links and tapes from before vibes still load: they become Lo-fi with the same mood and weather, the nearest groove (from their old speed) and Cassette (or Next Room if their tone was very muffled). Broadcast mode accepts `&tape=…` too, and the studio page has a field to paste a mixtape link. Each tape gets a free frequency when it's made (stored as `f`, carried in links), so renaming it doesn't move it on the dial. A new mixtape starts playing as soon as it's created; a shared link waits for a tap on play, as browsers require. The cassette is drawn in LED dots with Loafie in the window; the reels turn while it plays.
+
+`window.loafBand` is exposed so a tape can be rendered in an OfflineAudioContext for testing and level matching.
+
+The unsaved draft is kept in localStorage too (`S.draft`), so a refresh restores it as "(not saved)". Opening someone's link while you have your own unsaved draft moves yours into your saved tapes first (if there's room).
+
+**Roll tape** picks a random vibe, mood, groove, sound and weather (`rollRecipe()`) and, unless you've typed your own name, a random name (`rollName()`). Rolling a saved tape starts a new draft rather than changing the saved one.
+
+**Download card** and **Share** use `tapeCard()`: a 1200×630 PNG drawn on a canvas with the cassette, the tape's frequency, a snapshot of the board and desk, and loaffm.com. Link previews can't show a mixtape, because crawlers don't run the page, so the card does that job. The card is made in the background whenever the tape changes, so Share can open the share sheet straight from the tap. Share only appears where `navigator.share` exists, and attaches the card when the browser can share files. Nothing is uploaded. The site's own `og.png` comes from the same function (`window.loafCard`), with a "Rainy Sunday" tape at 93.7.

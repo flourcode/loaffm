@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Loaf FM",
   "short_name": "Loaf FM",
-  "description": "Tiny cats and chill. A clock radio with a cat named Loafie living inside it: lo-fi stations composed live, calm sounds, and mixtapes you can make and share.",
+  "description": "Pet cats and chill. A clock radio with a cat named Loafie living inside it: lo-fi stations composed live, calm sounds, and mixtapes you can make and share.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
