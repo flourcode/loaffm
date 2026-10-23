@@ -54,6 +54,8 @@ function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n|
 function randFreq(){const taken=new Set(Object.values(FREQ_FIXED).map(f=>Math.round(f*10)));let f;do{f=879+2*Math.floor(Math.random()*101);}while(taken.has(f));return f;} /* a free spot on the dial, odd tenths like real FM */
 const FREQ_FIXED={late:88.3,window:91.7,crt:94.1,sunday:97.5,desert:102.9,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
 S.tapes=(Array.isArray(S.tapes)?S.tapes:[]).map(cleanTape).filter(t=>t&&t.id).slice(0,TAPE_MAX);
+/* an unsaved mixtape is kept quietly too, so a refresh or a closed tab doesn't lose it */
+function keepDraft(){if(BC)return;S.draft=draft?Object.assign({},draft):null;save();}
 function tapeOf(id){if(typeof id!=='string'||!id.startsWith('tape:'))return null;return id==='tape:draft'?draft:S.tapes.find(t=>'tape:'+t.id===id)||null;}
 function tapeStyle(tp){tp=tp||cleanTape({});const bk=TAPE_BASES[tp.b],st=Object.assign({},STYLES['gen:'+bk]);
   st.prog=['warm','minor','jazz'][tp.m];if(bk==='desert'&&tp.m===1)st.prog='drone';
@@ -76,6 +78,7 @@ function save(){if(BC)return;try{localStorage.setItem(STORE,JSON.stringify(S));}
    Full-screen 16:9 board, no page or controls, sound starts by itself (OBS allows it), she never dozes off waiting
    for a mouse that isn't coming, and every so often a treat drops on its own. */
 const BCQ=new URLSearchParams(location.search),BC=/^(video|live)$/.test(BCQ.get('broadcast')||'')?{mode:BCQ.get('broadcast')}:null;
+if(!BC&&S.draft){draft=cleanTape(S.draft);if(draft)delete draft.id;}
 const ST_KEYS={late:'gen:late',window:'gen:window',crt:'gen:crt',sunday:'gen:sunday',desert:'gen:desert',purr:'gen:purr',rain:'gen:rain',ocean:'gen:waves',waves:'gen:waves',fire:'gen:fire',brown:'gen:brown'};
 const FREQ={'gen:late':'88.3','gen:window':'91.7','gen:crt':'94.1','gen:sunday':'97.5','gen:desert':'102.9','gen:purr':'89.9','gen:rain':'90.5','gen:waves':'93.3','gen:fire':'99.1','gen:brown':'100.7'};
 if(BC){BC.tz=BCQ.get('tz')||(BC.mode==='live'?'America/Los_Angeles':'');try{if(BC.tz)new Intl.DateTimeFormat('en-US',{timeZone:BC.tz});}catch(e){BC.tz='America/Los_Angeles';}
@@ -414,7 +417,7 @@ function fillStations(){stationEl.innerHTML='';{const og=document.createElement(
   if(!S.station){const o=document.createElement('option');o.value='';o.textContent='Pick a sound';stationEl.insertBefore(o,stationEl.firstChild);}
   stationEl.value=S.station||'';}
 if(!PALETTES[S.palette])S.palette='pegs';
-if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)&&!(tapeOf(S.station)&&S.station!=='tape:draft'&&!BC)&&!(BC&&tapeOf(S.station))){S.station='gen:purr';S.stationName='Purr';} /* a radio station saved before live radio was dropped */
+if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)&&!(tapeOf(S.station)&&!BC)&&!(BC&&tapeOf(S.station))){S.station='gen:purr';S.stationName='Purr';} /* a radio station saved before live radio was dropped */
 delete S.stationUrl;
 fillStations();
 stationEl.addEventListener('change',()=>{const v=stationEl.value;if(v==='__new'||v==='__edit'){stationEl.value=S.station||'';openMixtape(v==='__edit');return;}
@@ -467,10 +470,10 @@ function paintMixtape(){if(!mtTape)return;const tp=mtTape;mtQ('.mt-cass').innerH
   mt.querySelectorAll('.mt-sw button').forEach(b=>b.setAttribute('aria-pressed',String(tp.c===+b.dataset.c)));
   mt.querySelectorAll('.mt-sl input').forEach(r=>{r.value=tp[r.dataset.k];r.style.setProperty('--v',tp[r.dataset.k]+'%');});
   const saved=mtIsSaved();mtQ('.mt-save').hidden=saved;mtQ('.mt-del').hidden=!saved;
-  mtQ('.mt-note').textContent=saved?'Saved on this device. Changes save as you go.':'Not saved yet. The link works for anyone.';}
+  mtQ('.mt-note').textContent=saved?'Saved in this browser only. Copy the link to keep a backup or move it to another device.':'Not saved yet, but it’s kept if you refresh. Copy the link to share it or keep a backup.';}
 /* hear a change: small ones adjust the running music, bigger ones re-cut the tape with a short fade */
 let mtRecut=null;
-function mtApply(structural){const id=mtId();if(mtIsSaved())save();S.stationName=mtTape.n;dirty=true;
+function mtApply(structural){const id=mtId();if(mtIsSaved())save();else keepDraft();S.stationName=mtTape.n;dirty=true;
   if(gen&&gen.id===id){if(structural){clearTimeout(mtRecut);mtRecut=setTimeout(()=>{genStop(false);setTimeout(()=>{if(S.station===id)genStart(id);},450);},250);}else if(gen.snd&&gen.snd.update)gen.snd.update(tapeStyle(mtTape));}
   fillStations();paintMixtape();}
 function openMixtape(edit){const cur=tapeOf(S.station);
@@ -478,7 +481,7 @@ function openMixtape(edit){const cur=tapeOf(S.station);
   else if(draft&&S.station==='tape:draft')mtTape=draft;
   else{const bi=Math.max(0,TAPE_BASES.indexOf((S.station||'').replace('gen:','')));const base=MUSIC.some(m=>m.id===S.station)?bi:1;
     draft=cleanTape({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),b:base,m:[0,1,1,2,1][base],d:[2,1,2,1,0][base],w:[0,1,0,4,0][base],t:[52,30,75,62,15][base],u:[35,30,55,40,20][base],o:[45,40,55,50,35][base]});
-    mtTape=draft;setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
+    mtTape=draft;keepDraft();setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
   mt.hidden=false;if(!S.mtSeen)seenMixtape();paintMixtape();startSpin();paintMixKey();mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
 function closeMixtape(){mt.hidden=true;stopSpin();paintMixKey();}
 const mixKey=$('mixKey');function paintMixKey(){mixKey.setAttribute('aria-pressed',String(!mt.hidden));mixKey.title=mt.hidden?'Make a mixtape':'Close the mixtape deck';mixKey.classList.toggle('pulse',!S.mtSeen&&mt.hidden);}
@@ -503,7 +506,7 @@ mt.addEventListener('click',e=>{const b=e.target.closest('.mt-seg button');if(b&
 mt.querySelectorAll('.mt-sl input').forEach(r=>r.addEventListener('input',()=>{if(!mtTape)return;mtTape[r.dataset.k]=+r.value;r.style.setProperty('--v',r.value+'%');clearTimeout(r._t);r._t=setTimeout(()=>mtApply(false),120);}));
 mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply(false),250);});
 mtQ('.mt-save').addEventListener('click',()=>{if(!mtTape||mtIsSaved())return;if(S.tapes.length>=TAPE_MAX){mtQ('.mt-note').textContent='You can keep '+TAPE_MAX+' mixtapes. Delete one to save this.';return;}
-  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();paintMixtape();mtQ('.mt-note').textContent='Saved. It’s in the station list under Your mixtapes.';});
+  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.draft=null;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();paintMixtape();mtQ('.mt-note').textContent='Saved. It’s in the station list under Your mixtapes.';});
 mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;closeMixtape();
   if(S.station===id){const was=!!gen;S.station='gen:purr';S.stationName='Purr';if(was){genStop(false);setTimeout(()=>genStart('gen:purr'),500);}}save();fillStations();});
 mtQ('.mt-link').addEventListener('click',async()=>{if(!mtTape)return;const url=location.origin+location.pathname.replace(/[^/]*$/,'')+'?tape='+encodeTape(mtTape);
@@ -511,7 +514,7 @@ mtQ('.mt-link').addEventListener('click',async()=>{if(!mtTape)return;const url=l
 mtQ('.mt-more').addEventListener('click',e=>{const open=mt.classList.toggle('mt-open');e.target.setAttribute('aria-expanded',String(open));e.target.textContent=open?'Hide the controls':'Adjust the sound';});
 /* someone opened a mixtape link: load it as an unsaved tape, ready to play and keep */
 if(!BC&&new URLSearchParams(location.search).get('tape')){const tp=decodeTape(new URLSearchParams(location.search).get('tape'));
-  if(tp){draft=tp;S.station='tape:draft';S.stationName=tp.n;fillStations();openMixtape(false);say('Mixtape: press play');}
+  if(tp){if(draft&&S.tapes.length<TAPE_MAX&&JSON.stringify(draft)!==JSON.stringify(tp)){draft.id=Date.now().toString(36);S.tapes.push(draft);}draft=tp;keepDraft();S.station='tape:draft';S.stationName=tp.n;fillStations();openMixtape(false);say('Mixtape: press play');}
   try{const u=new URL(location.href);u.searchParams.delete('tape');history.replaceState(history.state,'',u.pathname+u.search+u.hash);}catch(e){}}
 /* ================= Material colour scheme from the palette seed ================= */
 const lin=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);};
