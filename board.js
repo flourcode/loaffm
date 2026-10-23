@@ -479,8 +479,22 @@ function openMixtape(edit){const cur=tapeOf(S.station);
   else{const bi=Math.max(0,TAPE_BASES.indexOf((S.station||'').replace('gen:','')));const base=MUSIC.some(m=>m.id===S.station)?bi:1;
     draft=cleanTape({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),b:base,m:[0,1,1,2,1][base],d:[2,1,2,1,0][base],w:[0,1,0,4,0][base],t:[52,30,75,62,15][base],u:[35,30,55,40,20][base],o:[45,40,55,50,35][base]});
     mtTape=draft;setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
-  mt.hidden=false;paintMixtape();startSpin();mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
-function closeMixtape(){mt.hidden=true;stopSpin();}
+  mt.hidden=false;if(!S.mtSeen)seenMixtape();paintMixtape();startSpin();paintMixKey();mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function closeMixtape(){mt.hidden=true;stopSpin();paintMixKey();}
+const mixKey=$('mixKey');function paintMixKey(){mixKey.setAttribute('aria-pressed',String(!mt.hidden));mixKey.title=mt.hidden?'Make a mixtape':'Close the mixtape deck';mixKey.classList.toggle('pulse',!S.mtSeen&&mt.hidden);}
+/* first visit: a little cassette teaser under the controls, until they open the deck or wave it away */
+function seenMixtape(){if(!S.mtSeen){S.mtSeen=1;save();}teaser.hidden=true;stopTeaser();paintMixKey();}
+const teaser=document.createElement('div');teaser.className='mt-teaser';teaser.hidden=true;
+const teaserTape={n:"Loafie's mixtape",c:Math.floor(Math.random()*TAPE_COLORS.length)};let teaserT=null,teaserPh=0;
+teaser.innerHTML=`<div class="mt-tz-cass" aria-hidden="true"></div><p><strong>Make a mixtape.</strong> <span>Pick a station, mess with it until it sounds right, send it to someone.</span></p><button class="btn filled mt-tz-go" type="button">Make one</button><button class="icon mt-tz-x" type="button" aria-label="Hide this" title="Hide">✕</button>`;
+mt.before(teaser);
+function drawTeaser(){teaser.querySelector('.mt-tz-cass').innerHTML=cassetteSVG(teaserTape,teaserPh);}
+function stopTeaser(){clearInterval(teaserT);teaserT=null;}
+teaser.querySelector('.mt-tz-go').addEventListener('click',()=>{seenMixtape();openMixtape(false);});
+teaser.querySelector('.mt-tz-x').addEventListener('click',seenMixtape);
+if(!BC&&!S.mtSeen&&!new URLSearchParams(location.search).get('tape')){teaser.hidden=false;drawTeaser();if(!matchMedia('(prefers-reduced-motion: reduce)').matches)teaserT=setInterval(()=>{teaserPh++;drawTeaser();},450);}
+paintMixKey();
+mixKey.addEventListener('click',()=>{if(!mt.hidden){closeMixtape();return;}seenMixtape();const cur=tapeOf(S.station);openMixtape(!!cur&&S.station!=='tape:draft');});
 function startSpin(){stopSpin();mtSpin=setInterval(()=>{if(mt.hidden||!mtTape)return;if(gen&&gen.id===mtId()){mtPhase=(mtPhase+1)%8;mtQ('.mt-cass').innerHTML=cassetteSVG(mtTape,mtPhase);}},260);} /* the reels turn while the tape plays */
 function stopSpin(){clearInterval(mtSpin);mtSpin=null;}
 mtQ('.mt-x').addEventListener('click',closeMixtape);
@@ -521,6 +535,7 @@ function applyScheme(){const pp=PALETTES[S.palette]||PALETTES.crt;const seed=pp.
     '--on-surf':tone(t.onS,cn,h),'--on-surf-v':tone(t.onSv,cv,h),'--outline':tone(t.out,cv,h),'--outline-v':tone(t.outv,cv,h),'--inv':tone(t.inv,cn,h),'--on-inv':tone(t.onInv,cn,h)};
   /* in light mode the page is nearly pure white; the panel keeps a hint of the palette */
   if(pp.peg&&light){v['--surf-c']='#ecebe6';} /* Pegs in light mode: a putty-coloured case, like 80s electronics */
+  v['--glow']=pp.secondary; /* the MIXTAPE key glows in the palette's lit colour */
   const st=document.documentElement.style;for(const k in v)st.setProperty(k,v[k]);document.documentElement.classList.toggle('light',light);
   const meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=v['--surf'];}
 lightMQ.addEventListener('change',()=>paintKeys());

@@ -81,7 +81,7 @@ body.idle .about{opacity:.07;transition-duration:2.4s}
 @media (display-mode:standalone){.top,#page,.foot{display:none!important}.boardwrap{padding-top:16px}}
 .boardwrap{padding:0 var(--gutter)}
 /* Controls: one row on wide screens; on phones, play + station, then volume + brightness side by side */
-.face .row{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto auto auto auto auto;gap:12px 16px;align-items:center}
+.face .row{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr) auto auto auto auto auto auto;gap:12px 16px;align-items:center}
 .fz{display:flex;align-items:center;gap:10px}
 .fz .ico{display:block;width:20px;height:20px;fill:var(--on-surf-v);flex:0 0 auto}
 .mutebtn{flex:0 0 auto;width:32px;height:32px;margin:-6px -4px -6px -6px;padding:6px;border:0;border-radius:16px;background:transparent;color:var(--on-surf-v);cursor:pointer;display:grid;place-items:center;position:relative;overflow:hidden}
@@ -98,8 +98,9 @@ body.idle .about{opacity:.07;transition-duration:2.4s}
   .face .sitbtn{grid-column:5/6;grid-row:1}
   .face .vol{grid-column:1/3;grid-row:2}
   .face .br{grid-column:3/6;grid-row:2}
-  .face .sleepbtn{grid-column:1/3;grid-row:3;justify-self:start}
-  .face .dots{grid-column:3/6;grid-row:3;justify-content:flex-end}
+  .face .mixbtn{grid-column:1/3;grid-row:3;justify-self:start}
+  .face .sleepbtn{grid-column:3/6;grid-row:3;justify-self:end}
+  .face .dots{grid-column:1/6;grid-row:4;justify-content:center}
   .face .lbl{display:none}
   .fz .ico{display:block}
   .icon{width:40px;height:40px}
@@ -190,3 +191,28 @@ html.broadcast .sleepbtn{display:none}
   .mixtape:not(.mt-open) .mt-right>.mt-row:not(:first-child),.mixtape:not(.mt-open) .mt-sliders{display:none}
 }
 html.broadcast .mixtape{display:none!important}
+
+/* MIXTAPE: the deck's own key, in the same family as SLEEP but a little louder */
+.mixbtn{height:32px;display:inline-flex;align-items:center;gap:7px;padding:0 12px 0 10px;border:1px solid var(--p);border-radius:6px;background:var(--p);color:var(--on-p);font:900 14px/1 var(--dots);letter-spacing:1px;cursor:pointer;white-space:nowrap;position:relative;overflow:hidden}
+.mixbtn svg{width:20px;height:20px;fill:currentColor;flex:0 0 auto}
+.mixbtn::before{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s}.mixbtn:hover::before{opacity:.12}
+.mixbtn[aria-pressed="true"]{background:transparent;color:var(--p)}
+html.broadcast .mixbtn{display:none}
+
+/* the MIXTAPE key glows like a lit pixel sign; on a first visit it also breathes, in stepped pixel rings */
+.mixbtn{overflow:visible;box-shadow:0 0 0 2px color-mix(in srgb,var(--glow,#e7c74e) 22%,transparent),0 0 10px color-mix(in srgb,var(--glow,#e7c74e) 35%,transparent)}
+.mixbtn.pulse{animation:mixglow 1.6s steps(4,end) infinite}
+@keyframes mixglow{0%{box-shadow:0 0 0 2px color-mix(in srgb,var(--glow,#e7c74e) 25%,transparent),0 0 8px color-mix(in srgb,var(--glow,#e7c74e) 30%,transparent)}
+  50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--glow,#e7c74e) 40%,transparent),0 0 0 6px color-mix(in srgb,var(--glow,#e7c74e) 18%,transparent),0 0 18px color-mix(in srgb,var(--glow,#e7c74e) 45%,transparent)}
+  100%{box-shadow:0 0 0 2px color-mix(in srgb,var(--glow,#e7c74e) 25%,transparent),0 0 8px color-mix(in srgb,var(--glow,#e7c74e) 30%,transparent)}}
+.mixbtn[aria-pressed="true"]{box-shadow:none;animation:none}
+.mixbtn svg{filter:drop-shadow(0 0 3px var(--glow,#e7c74e))}.mixbtn span{text-shadow:0 0 6px color-mix(in srgb,var(--glow,#e7c74e) 70%,transparent)}
+@media (prefers-reduced-motion:reduce){.mixbtn.pulse{animation:none}}
+/* first-visit teaser */
+.mt-teaser{margin-top:14px;display:flex;align-items:center;gap:16px;padding:10px 12px;border:1px dashed var(--outline);border-radius:8px}
+.mt-teaser[hidden]{display:none}
+.mt-tz-cass{flex:0 0 auto;width:120px}.mt-tz-cass svg{width:100%;height:auto;display:block}
+.mt-teaser p{margin:0;flex:1;font-size:15px;color:var(--on-surf)}.mt-teaser p span{color:var(--on-surf-v)}
+.mt-tz-x{flex:0 0 auto}
+@media (max-width:700px){.mt-teaser{gap:10px;padding:8px}.mt-tz-cass{width:84px}.mt-teaser p{font-size:14px}.mt-teaser p span{display:none}.mt-tz-go{padding:0 14px}}
+html.broadcast .mt-teaser{display:none!important}

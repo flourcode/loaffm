@@ -2,7 +2,7 @@
   "id": "/",
   "name": "Loaf FM",
   "short_name": "Loaf FM",
-  "description": "A tiny pixel cat that keeps you company while you work: a clock radio that makes its own music, with a cat who naps, wanders and purrs when you pet her.",
+  "description": "Tiny cats and chill. A clock radio with a cat named Loafie living inside it: lo-fi stations composed live, calm sounds, and mixtapes you can make and share.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
