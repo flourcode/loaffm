@@ -15,7 +15,7 @@
  *   - IP addresses aren't stored by GA4; Google Signals and ad personalisation stay off.
  */
 (function () {
-  var GA_MEASUREMENT_ID = ''; // e.g. 'G-XXXXXXXXXX'
+  var GA_MEASUREMENT_ID = 'G-0Y62CW4XDM'; // e.g. 'G-XXXXXXXXXX'
 
   if (!GA_MEASUREMENT_ID) return;
   if (navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.globalPrivacyControl) return; // honour browser privacy signals
