@@ -692,13 +692,12 @@ mt.innerHTML=`<header class="mt-head"><h3>MIXTAPE</h3><p class="mt-sub"></p><but
 <button class="btn tonal mt-roll" type="button" title="Pick a random recipe, then tweak it"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0h6v1h1v6h-1v1H1v-1H0V1h1zM2 2v1h1V2zm3 0v1h1V2zM2 5v1h1V5zm3 0v1h1V5z"/></svg>Roll tape</button>
 </div>
 <div class="mt-right">${segHTML('v','Vibe',VIBES)}${segHTML('m','Mood',MOODS)}${segHTML('g','Groove',GROOVES)}${segHTML('s','Sound',RECS)}${segHTML('w','Weather',WEATHERS)}
-<div class="mt-actions"><button class="btn filled mt-make" type="button">Make tape</button><span class="mt-note" aria-live="polite"></span></div></div></div></div>
+<div class="mt-actions"><button class="btn filled mt-make" type="button">Make tape</button><span class="mt-note" aria-live="polite"></span><button type="button" class="mt-lk mt-del">Delete tape</button><button type="button" class="mt-lk mt-link" hidden>Copy link</button></div></div></div></div>
 <div class="mt-done" hidden><div class="mt-big"></div><div class="mt-info">
 <p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
-<div class="mt-acts"><button class="btn filled mt-play" type="button">Play</button><button class="btn filled mt-share" type="button">Share</button><button class="btn filled mt-keep" type="button">Keep this tape</button><button class="btn tonal mt-again" type="button">Make another</button></div>
-<p class="mt-extra"></p>
-<p class="mt-links"><button type="button" class="mt-lk mt-link">Copy link</button><button type="button" class="mt-lk mt-card">Download card</button><button type="button" class="mt-lk mt-edit">Change it</button><button type="button" class="mt-lk mt-del">Delete</button></p>
-<p class="mt-note2" aria-live="polite"></p></div></div>`;
+<div class="mt-acts"><button class="btn filled mt-share" type="button">Share</button><button class="btn tonal mt-edit" type="button">Edit</button><button class="btn filled mt-play" type="button">Play</button><button class="btn filled mt-keep" type="button">Keep this tape</button></div>
+<p class="mt-note2" aria-live="polite"></p>
+<p class="mt-links"><button type="button" class="mt-lk mt-again">New tape</button><button type="button" class="mt-lk mt-card">Save as picture</button></p></div></div>`;
 face.after(mt);
 const mtQ=sel=>mt.querySelector(sel);
 function mtIsSaved(){return !!(mtTape&&mtTape.id&&S.tapes.includes(mtTape));}
@@ -706,17 +705,16 @@ function mtId(){return mtIsSaved()?'tape:'+mtTape.id:'tape:draft';}
 let mtView='build',draftIn=false; /* draftIn: the unsaved tape came from someone's link */
 function paintMixtape(){if(!mtTape)return;const tp=mtTape,saved=mtIsSaved(),done=mtView==='done';
   mtQ('.mt-build').hidden=done;mtQ('.mt-done').hidden=!done;
-  mtQ('.mt-sub').textContent=done?(saved?'Your tape. It’s on the dial under Your mixtapes.':'Someone sent you a tape. Keep it to play it any time.'):(saved?'Changes save as you go.':'Pick a vibe, a mood and a groove. You’ll hear each choice right away.');
+  mtQ('.mt-sub').textContent=done?(saved?'':'Someone sent you this tape.'):(saved?'Changes save as you go.':'Pick a vibe, a mood and a groove. You’ll hear each choice right away.');
   if(done){mtQ('.mt-big').innerHTML=cassetteSVG(tp,mtPhase);mtQ('.mt-title').textContent=tp.n;mtQ('.mt-freq').textContent=(tp.f/10).toFixed(1)+' FM';
-    mtQ('.mt-recipe').textContent=VIBES[tp.v]+' · '+MOODS[tp.m]+' · '+GROOVES[tp.g];
-    mtQ('.mt-extra').textContent=RECS[tp.s]+(tp.w?' · '+WEATHERS[tp.w]:'')+(saved?' · Saved in this browser. The link is your backup.':'');
+    mtQ('.mt-recipe').textContent=[VIBES[tp.v],MOODS[tp.m],GROOVES[tp.g],RECS[tp.s]].concat(tp.w?[WEATHERS[tp.w]]:[]).join(' · ');
     const on=gen&&gen.id===mtId();mtQ('.mt-play').textContent=on?'Stop':'Play';mtQ('.mt-play').setAttribute('aria-pressed',String(!!on));
-    mtQ('.mt-share').hidden=!saved;mtQ('.mt-keep').hidden=saved;mtQ('.mt-link').hidden=!saved;mtQ('.mt-card').hidden=!saved;mtQ('.mt-del').hidden=!saved;mtQ('.mt-again').textContent=saved?'Make another':'Make your own';
+    mtQ('.mt-share').hidden=!saved;mtQ('.mt-edit').hidden=!saved;mtQ('.mt-play').hidden=saved;mtQ('.mt-keep').hidden=saved;mtQ('.mt-card').hidden=!saved;mtQ('.mt-again').textContent=saved?'New tape':'Make your own';
     if(saved)queueCard();}
   else{mtQ('.mt-cass').innerHTML=cassetteSVG(tp,mtPhase);if(document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=tp.n;
     mt.querySelectorAll('.mt-seg button').forEach(b=>b.setAttribute('aria-pressed',String(tp[b.dataset.k]===+b.dataset.v)));
     mt.querySelectorAll('.mt-sw button').forEach(b=>b.setAttribute('aria-pressed',String(tp.c===+b.dataset.c)));
-    mtQ('.mt-make').textContent=saved?'Done':'Make tape';
+    mtQ('.mt-make').textContent=saved?'Done':'Make tape';mtQ('.mt-del').hidden=!saved;
     mtQ('.mt-note').textContent=saved?'':'It’s playing as you go. Make the tape to keep it and share it.';}}
 function mtShow(v){mtView=v;mtQ('.mt-note2').textContent='';paintMixtape();}
 window.__mtPaint=()=>{if(!mt.hidden&&mtView==='done'&&mtTape){const on=gen&&gen.id===mtId();mtQ('.mt-play').textContent=on?'Stop':'Play';mtQ('.mt-play').setAttribute('aria-pressed',String(!!on));}}; /* keeps Play/Stop right when the radio changes elsewhere */
@@ -764,7 +762,7 @@ mtQ('.mt-play').addEventListener('click',()=>{if(!mtTape)return;const id=mtId();
 mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;closeMixtape();
   if(S.station===id){const was=!!gen;S.station='gen:purr';S.stationName='Purr';if(was){genStop(false);setTimeout(()=>genStart('gen:purr'),500);}}save();fillStations();});
 async function copyTapeLink(b,label){if(!mtTape)return;const url=tapeURL(mtTape);let ok=false;try{await navigator.clipboard.writeText(url);ok=true;}catch(e){}
-  b.textContent=ok?'Link copied':'Copy failed';mtQ('.mt-note2').textContent=ok?'Paste it anywhere. Whoever opens it hears your tape.':url;setTimeout(()=>b.textContent=label,1600);}
+  b.textContent=ok?'Link copied':'Copy failed';mtQ('.mt-note2').textContent=ok?'Paste it anywhere. Whoever opens it hears your tape.':url;setTimeout(()=>b.textContent=label,1800);}
 mtQ('.mt-link').addEventListener('click',e=>copyTapeLink(e.currentTarget,'Copy link'));
 /* ROLL TAPE: a random recipe that still sounds like Loaf FM, then tweak it from there */
 const RN={a:['Rainy','Sleepy','Midnight','Sunday','Velvet','Dusty','Neon','Quiet','Lazy','Foggy','Late','Tiny','Soft','Static','Moonlit','Cozy','Slow','Hazy','Blue','Golden','Drowsy','Purring'],
