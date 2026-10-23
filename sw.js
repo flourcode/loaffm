@@ -7,7 +7,7 @@
    exactly what's deployed, and the offline copy is refreshed as they browse. The cache is only used offline.
    CACHE only needs changing if this file's own caching logic changes. */
 const CACHE = 'loaffm-v54';
-const SHELL = ['./', './index.html', './privacy.html', './terms.html', './404.html', './site.css', './board.css', './board.js', './analytics.js', './fonts/doto-700.woff2', './fonts/doto-900.woff2', './fonts/plex-400.woff2', './fonts/plex-400-italic.woff2', './fonts/plex-500.woff2', './fonts/plex-600.woff2', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-32.png', './icons/icon.svg', './icons/apple-touch-icon.png'];
+const SHELL = ['./', './index.html', './notes.html', './privacy.html', './terms.html', './404.html', './site.css', './board.css', './board.js', './analytics.js', './fonts/doto-700.woff2', './fonts/doto-900.woff2', './fonts/plex-400.woff2', './fonts/plex-400-italic.woff2', './fonts/plex-500.woff2', './fonts/plex-600.woff2', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/favicon-32.png', './icons/icon.svg', './icons/apple-touch-icon.png'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
 });

@@ -3,10 +3,22 @@
 .unit{width:100%;max-width:100%;margin:0 auto;overflow:hidden;background:var(--surf-c);border-radius:12px;padding:16px}
 .window{position:relative;width:100%;aspect-ratio:4/1;max-width:100%;background:var(--window);border-radius:6px 6px 2px 2px;box-shadow:0 0 0 var(--bz,7px) #1c1c1e,inset 0 0 0 1px #2a2a2d;overflow:hidden;cursor:default;touch-action:manipulation;user-select:none;-webkit-user-select:none}
 .window canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-.window.game{aspect-ratio:128/18;margin-top:var(--bz,7px);border-radius:2px 2px 6px 6px;cursor:pointer} /* one display behind one bezel: the strip between the clock and the desk is the same bezel */
+.window.game{aspect-ratio:128/18;margin-top:0;border-radius:0 0 6px 6px;cursor:pointer}
+/* one board: the clock and the desk meet with no gap, so the dots run straight on; the bezel goes round the outside of both */
+.unit>.window:not(.game){border-radius:6px 6px 0 0;box-shadow:calc(var(--bz)*-1) 0 0 0 #1c1c1e,var(--bz) 0 0 0 #1c1c1e,0 calc(var(--bz)*-1) 0 0 #1c1c1e,calc(var(--bz)*-1) calc(var(--bz)*-1) 0 0 #1c1c1e,var(--bz) calc(var(--bz)*-1) 0 0 #1c1c1e}
+.unit>.window.game{box-shadow:calc(var(--bz)*-1) 0 0 0 #1c1c1e,var(--bz) 0 0 0 #1c1c1e,0 var(--bz) 0 0 #1c1c1e,calc(var(--bz)*-1) var(--bz) 0 0 #1c1c1e,var(--bz) var(--bz) 0 0 #1c1c1e}
 .unit{--bz:7px}
-@media (max-width:700px){.unit{--bz:5px}}
+@media (max-width:700px){.unit{--bz:4px}}
 .window.game[hidden]{display:none}
+/* phones: the desk zooms in on her; the canvases are twice as wide and a camera slides along */
+.window.game.zoom{aspect-ratio:64/18}
+.window.game.zoom canvas{width:200%;right:auto;will-change:transform}
+.window.game{overflow:visible} /* so the hint can sit above the desk */
+.pethint{position:absolute;top:auto;bottom:86%;transform:translateX(-50%);padding:3px 8px;border-radius:10px;background:rgba(255,255,255,.92);color:#15161a;font:900 11px/1.2 var(--dots);letter-spacing:.5px;white-space:nowrap;pointer-events:none;animation:pethint 1.4s ease-in-out infinite;z-index:2}
+.pethint::after{content:'';position:absolute;left:50%;bottom:-5px;margin-left:-5px;border:5px solid transparent;border-bottom:0;border-top-color:rgba(255,255,255,.92)}
+.pethint[hidden]{display:none}
+@keyframes pethint{50%{transform:translateX(-50%) translateY(3px)}}
+@media (prefers-reduced-motion:reduce){.pethint{animation:none}}
 .face{display:grid;gap:16px;margin-top:16px;transition:opacity .9s ease}
 body.idle .face{opacity:.07;transition-duration:2.4s}
 
@@ -81,7 +93,7 @@ body.idle .about{opacity:.07;transition-duration:2.4s}
 @media (display-mode:standalone){.top,#page,.foot{display:none!important}.boardwrap{padding-top:16px}}
 .boardwrap{padding:0 var(--gutter)}
 /* Controls: one row on wide screens; on phones, play + station, then volume + brightness side by side */
-.face .row{display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(0,1fr) auto auto auto auto auto auto;gap:12px 16px;align-items:center}
+.face .row{display:grid;grid-template-columns:auto minmax(0,1.5fr) minmax(0,.8fr) auto auto auto auto;gap:12px 14px;align-items:center}
 .fz{display:flex;align-items:center;gap:10px}
 .fz .ico{display:block;width:20px;height:20px;fill:var(--on-surf-v);flex:0 0 auto}
 .mutebtn{flex:0 0 auto;width:32px;height:32px;margin:-6px -4px -6px -6px;padding:6px;border:0;border-radius:16px;background:transparent;color:var(--on-surf-v);cursor:pointer;display:grid;place-items:center;position:relative;overflow:hidden}
@@ -90,16 +102,15 @@ body.idle .about{opacity:.07;transition-duration:2.4s}
 .mutebtn[aria-pressed="true"]{color:var(--p)}.vol.muted .fader{opacity:.45}
 /* Phones: a compact, dense version of the same controls. Labels become icons, the field and sliders get shorter. */
 @media (max-width:700px){
-  .unit{padding:10px}
+  .unit{padding:8px}
   .face{margin-top:10px;gap:8px}
-  .face .row{grid-template-columns:40px minmax(0,calc(50% - 48px)) minmax(0,1fr) 40px 40px;gap:8px 12px}
-  .face .st{grid-column:2/4;grid-row:1}
-  .face .feedbtn{grid-column:4/5;grid-row:1}
-  .face .sitbtn{grid-column:5/6;grid-row:1}
-  .face .vol{grid-column:1/3;grid-row:2}
-  .face .dispwrap{grid-column:3/6;grid-row:2;justify-self:end}
-  .face .mixbtn{grid-column:1/3;grid-row:3;justify-self:start}
-  .face .sleepbtn{grid-column:3/6;grid-row:3;justify-self:end}
+  .face .row{grid-template-columns:48px minmax(0,1fr) auto 44px 44px;gap:10px 8px}
+  .face #playKey{grid-column:1;grid-row:1}
+  .face .st{grid-column:2/6;grid-row:1}
+  .face .dispbtn{grid-column:3;grid-row:2;height:40px}
+  .face .feedbtn{grid-column:4;grid-row:2}
+  .face .sitbtn{grid-column:5;grid-row:2}
+  .face .vol,.face .floatbtn{display:none} /* phones have volume buttons, and can't float */
   .face .row>.ctl .lbl{display:none}
   .fz .ico{display:block}
   .icon{width:40px;height:40px}
@@ -125,31 +136,14 @@ html.turning #page{opacity:.55;transition:opacity .2s}
 .floatnote[hidden]{display:none}
 /* Palette tiles: each a tiny board in its palette */
 .dots{display:flex;gap:2px;align-items:center}
-/* DISPLAY key and its panel */
-.dispwrap{position:relative}
-.dispbtn{height:32px;display:inline-flex;align-items:center;gap:8px;padding:0 10px 0 8px;border:1px solid var(--outline);border-radius:6px;background:transparent;color:var(--on-surf-v);font:900 14px/1 var(--dots);letter-spacing:1px;cursor:pointer;white-space:nowrap;position:relative;overflow:hidden}
-.dispbtn::before{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s}.dispbtn:hover::before{opacity:.08}
-.dispbtn canvas{width:24px;height:16px;display:block;border-radius:3px}
-.disppanel{border-top:1px solid var(--outline-v);padding-top:14px;display:grid;grid-template-columns:auto minmax(0,1fr) minmax(200px,280px);gap:10px 24px;align-items:center}
-.disppanel .dp-lab{grid-column:1}.disppanel .dots{grid-column:2}.disppanel .ctl{grid-column:3}
-@media (max-width:700px){.disppanel{grid-template-columns:1fr}.disppanel .dp-lab,.disppanel .dots,.disppanel .ctl{grid-column:1}}
-.disppanel[hidden]{display:none}
-.dp-lab,.disppanel .lbl{font:500 12px/16px var(--font);letter-spacing:.5px;text-transform:uppercase;color:var(--on-surf-v)}
-.disppanel .lbl{display:flex;justify-content:space-between}
-.disppanel .ctl{display:grid;gap:4px}
-.disppanel .dots{display:grid;grid-template-columns:repeat(6,minmax(0,92px));gap:6px}@media (max-width:700px){.disppanel .dots{grid-template-columns:repeat(3,1fr)}}
-.disppanel .swatch{width:auto;height:auto;padding:8px 4px 6px;display:grid;justify-items:center;gap:6px;border-radius:8px;box-shadow:inset 0 0 0 1px var(--outline-v)}
-.disppanel .swatch canvas{width:36px;height:24px}
-.disppanel .swatch span{font:500 12px/16px var(--font);color:var(--on-surf-v);position:relative;z-index:1}
-.disppanel .swatch[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--p),0 0 10px color-mix(in srgb,var(--glow,#e7c74e) 35%,transparent)}
-.disppanel .swatch[aria-pressed="true"] span{color:var(--on-surf);font-weight:600}
-.disppanel .swatch::after{display:none}
-html.broadcast .dispwrap{display:none}
+/* DISPLAY: one key that steps through the four looks; its tile shows the current one */
+.dispbtn{width:44px;height:36px;display:grid;place-items:center;padding:0;border:1px solid rgba(0,0,0,.4);border-radius:3px;background:var(--c-cyan);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 2px 0 rgba(0,0,0,.3);cursor:pointer;position:relative;overflow:hidden}
+.dispbtn::before{content:'';position:absolute;inset:0;background:#000;opacity:0;transition:opacity .15s}.dispbtn:hover::before{opacity:.08}
+.dispbtn:active{transform:translateY(1px)}
+.dispbtn canvas{width:27px;height:18px;display:block;border-radius:3px;position:relative}
+html.broadcast .dispbtn{display:none}
 /* lit keys: whatever is on glows, like a lit button on an old radio */
-.sleepbtn[aria-pressed="true"],.dispbtn[aria-expanded="true"],.icon.sitbtn[aria-pressed="true"],.icon.floatbtn[aria-pressed="true"],.icon#playKey[aria-pressed="true"]{box-shadow:0 0 0 1px color-mix(in srgb,var(--glow,#e7c74e) 55%,transparent),0 0 12px color-mix(in srgb,var(--glow,#e7c74e) 45%,transparent)}
-.dispbtn[aria-expanded="true"]{color:var(--p);border-color:var(--p)}
 .icon.sitbtn[aria-pressed="true"],.icon.floatbtn[aria-pressed="true"]{background:var(--p)!important;color:var(--on-p)!important}
-.mt-seg button[aria-pressed=true]{box-shadow:inset 0 0 8px color-mix(in srgb,var(--glow,#e7c74e) 35%,transparent)}
 .swatch{position:relative;isolation:isolate;overflow:hidden;width:36px;height:36px;border:0;border-radius:4px;padding:0;background:transparent;cursor:pointer;display:grid;place-items:center}
 .swatch::before{content:'';position:absolute;inset:0;background:var(--on-surf);opacity:0;transition:opacity .15s;border-radius:inherit}
 .swatch:hover::before{opacity:.08}
@@ -170,89 +164,161 @@ html.broadcast .bcstart{position:fixed;left:50%;top:50%;transform:translate(-50%
 .sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
 
 /* SLEEP: a labelled clock-radio button; shows the minutes left while the timer runs */
-.sleepbtn{height:32px;min-width:74px;white-space:nowrap;padding:0 10px;border:1px solid var(--outline);border-radius:6px;background:transparent;color:var(--on-surf-v);font:900 14px/1 var(--dots);letter-spacing:1px;cursor:pointer;position:relative;overflow:hidden}
-.sleepbtn::before{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s}.sleepbtn:hover::before{opacity:.08}
-.sleepbtn[aria-pressed="true"]{background:var(--p);color:var(--on-p);border-color:transparent}
-html.broadcast .sleepbtn{display:none}
 
 /* ===== Mixtape deck: opens inside the case, under the controls ===== */
-.mixtape{margin-top:14px;border-top:1px solid var(--outline-v);padding-top:14px}
+/* hardware keys: rectangular, a raised edge, a printed legend; lit means on */
+.hw{font:900 14px/1 var(--dots);letter-spacing:1px;text-transform:uppercase;padding:12px 10px;border:1px solid rgba(0,0,0,.4);border-radius:3px;cursor:pointer;
+  background:linear-gradient(var(--surf-highest),var(--surf-high));color:var(--on-surf);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 2px 0 rgba(0,0,0,.35);transition:background .1s,box-shadow .1s}
+.hw:hover{filter:brightness(1.05)}
+.hw:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 1px 0 rgba(0,0,0,.35)}
+.hw[aria-pressed=true]{background:var(--c-mint);color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.5),0 0 12px color-mix(in srgb,var(--c-mint) 70%,transparent),0 2px 0 rgba(0,0,0,.35)}
+.hw[hidden]{display:none}
+.hw-big{padding:14px 18px;font-size:16px;background:var(--c-orange);color:var(--ink)}
+.mt-print{font:900 11px/1.4 var(--dots);letter-spacing:2px;text-transform:uppercase;color:var(--on-surf-v)}
+/* the deck: a little plastic cassette deck that slid out of the radio */
+
+/* printed on the case, under the keys: world-building, not a control */
+.unit-print{margin:10px 2px 0;display:flex;justify-content:space-between;gap:12px;font:700 10px/1.4 var(--dots);letter-spacing:2.5px;color:var(--on-surf-v);opacity:.7}
+.unit-print span:last-child{text-align:right}
+html.broadcast .unit-print{display:none}
+@media (max-width:700px){.unit-print{font-size:9px;letter-spacing:1.5px}}
+/* ================= the tape deck under the radio =================
+   Not a box in a box: it sits on the case below the controls. Normally it shows what's on as a big cassette;
+   while you mix, it's the deck (on a phone, a sheet that slides up so Loafie stays in view). */
+.mixtape{margin-top:12px;border-top:1px solid var(--outline-v);padding-top:12px}
 .mixtape[hidden]{display:none}
-.mt-head{display:flex;align-items:baseline;gap:14px;margin-bottom:12px}
-.mt-head h3{font:700 22px/1 var(--dots);letter-spacing:1px;margin:0;color:var(--on-surf)}
-.mt-head p{margin:0;color:var(--on-surf-v);font-size:14px}
-.mt-x{margin-left:auto;font-size:16px;align-self:center}
-.mt-body{display:grid;grid-template-columns:minmax(220px,300px) 1fr;gap:28px;align-items:start}
-.mt-left{display:grid;gap:12px}
-.mt-cass svg{width:100%;height:auto;display:block}
-.mt-field{display:grid;gap:4px}
-.mt-lab{font:500 12px/16px var(--font);letter-spacing:.5px;color:var(--on-surf-v);text-transform:uppercase}
-.mt-name{font:400 16px/24px var(--font);padding:8px 12px;border:1px solid var(--outline);border-radius:4px;background:transparent;color:var(--on-surf);width:100%;box-sizing:border-box}
-.mt-name:focus{outline:2px solid var(--p);outline-offset:-1px}
-.mt-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.mt-right>.mt-row>.mt-lab{min-width:84px}
-.mt-sw{display:flex;gap:6px}
-.mt-sw button{width:20px;height:20px;border-radius:3px;border:0;background:var(--c);box-shadow:0 0 6px color-mix(in srgb,var(--c) 60%,transparent);cursor:pointer;padding:0}
-.mt-sw button[aria-pressed=true]{outline:2px solid var(--on-surf);outline-offset:2px}
-.mt-right{display:grid;gap:12px}
-.mt-seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--outline);border-radius:6px;overflow:hidden}
-.mt-seg button{font:500 13px/18px var(--font);padding:7px 12px;border:0;border-left:1px solid var(--outline);background:transparent;color:var(--on-surf);cursor:pointer}
-.mt-seg button:first-child{border-left:0}
-.mt-seg button:hover{background:color-mix(in srgb,var(--on-surf) 8%,transparent)}
-.mt-seg button[aria-pressed=true]{background:var(--p);color:var(--on-p)}
-.mt-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
-.mt-build[hidden],.mt-done[hidden]{display:none}
-/* the finished tape: the cassette is the reward */
-.mt-done{display:grid;grid-template-columns:minmax(240px,420px) 1fr;gap:32px;align-items:center;padding:4px 0 6px}
-.mt-big svg{width:100%;height:auto;display:block;filter:drop-shadow(0 10px 18px rgba(0,0,0,.35))}
-.mt-info{display:grid;gap:6px;justify-items:start}
+html.broadcast .mixtape{display:none!important}
+.mt-head{display:flex;align-items:center;gap:12px;margin-bottom:6px;min-height:24px}
+.mt-x{margin-left:auto;font-size:16px}.mt-x[hidden]{display:none}
+.mt-now,.mt-build{display:grid;gap:14px}
+.mt-now[hidden],.mt-build[hidden]{display:none}
+.mt-left{display:grid;gap:12px;align-content:start}
+.mt-right{display:grid;gap:14px;align-content:start}
+@media (min-width:701px){
+  .mt-now{grid-template-columns:minmax(260px,420px) minmax(0,1fr);gap:8px 32px;align-items:center}
+  .mt-build{grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);gap:22px;align-items:start}}
+/* the big cassette: the reward, and the "now playing" */
+.mt-big{width:100%;padding:0;border:0;background:none;display:block;cursor:default}
+.mt-big.cycles{cursor:pointer}
+.mt-big svg{width:100%;height:auto;display:block;filter:drop-shadow(0 10px 18px rgba(0,0,0,.35));transition:transform .15s}
+.mt-big.cycles:hover svg{transform:rotate(-1.5deg)}
+.mt-info{display:grid;gap:6px;justify-items:start;align-content:center}
 .mt-info p{margin:0}
-.mt-title{font:900 clamp(22px,3vw,34px)/1.1 var(--dots);letter-spacing:.5px;text-transform:uppercase;color:var(--on-surf);overflow-wrap:anywhere}
+.mt-title{font:900 clamp(24px,3vw,36px)/1.1 var(--dots);letter-spacing:.5px;text-transform:uppercase;color:var(--on-surf);overflow-wrap:anywhere}
 .mt-freq{font:900 22px/1.2 var(--dots);color:var(--p)}
 .mt-recipe{font:500 15px/22px var(--font);color:var(--on-surf-v)}
-.mt-acts .mt-share{min-width:132px}
-.mt-acts{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+.mt-acts{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0 2px}
 .mt-acts [hidden]{display:none}
+.mt-hint{font:500 13px/18px var(--font);color:var(--on-surf-v)}.mt-hint:empty{display:none}
 .mt-note2{font-size:13px;color:var(--on-surf-v)}.mt-note2:empty{display:none}
 .mt-links{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px!important}
+.mt-links:not(:has(.mt-lk:not([hidden]))){display:none}
 .mt-lk{font:500 13px/20px var(--font);background:none;border:0;padding:2px 0;color:var(--p);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 .mt-lk[hidden]{display:none}
-.mt-lk.mt-del{color:var(--on-surf-v);margin-left:auto}
-.mt-make{min-width:140px}
-.mt-actions [hidden]{display:none}
-.mt-note{font-size:13px;color:var(--on-surf-v);overflow-wrap:anywhere}
-.mt-roll{justify-self:start;display:inline-flex;align-items:center;gap:8px}
-.mt-roll svg{width:16px;height:16px;fill:currentColor;shape-rendering:crispEdges}
-.mt-roll.rolled svg{animation:mtRoll .45s steps(4)}
-@keyframes mtRoll{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.mt-roll.rolled svg{animation:none}}
+.mt-lk.mt-del{color:var(--on-surf-v)}
+.mt-renamebox{display:flex;gap:8px;margin-top:6px}.mt-renamebox[hidden]{display:none}
+.mt-renamebox .mt-name{flex:1;font:600 17px/22px var(--font);padding:10px 12px;border:1px solid var(--outline);border-radius:3px;background:var(--surf);color:var(--on-surf)}
+.mt-name:focus{outline:2px solid var(--p);outline-offset:-1px}
+/* the deck while mixing */
+.mt-well{display:grid;place-items:center} /* just the tape, on the case, like the finished one */
+.mt-well .mt-cass{width:100%;max-width:380px;padding:0;border:0;background:none;cursor:pointer;display:block}
+.mt-well .mt-cass svg{width:100%;height:auto;display:block;filter:drop-shadow(0 10px 18px rgba(0,0,0,.35));transition:transform .15s}
+.mt-well .mt-cass:hover svg{transform:rotate(-1.5deg)}
+
+.mt-hwrow{display:grid;gap:6px}
+.mt-rowhead{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.mt-reroll{padding:6px 10px;font-size:11px}
+.mt-keys{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));grid-auto-flow:column;gap:8px}
+.mt-rec{display:grid;grid-template-columns:auto 1fr;gap:10px 14px;align-items:center;margin-top:6px}
+.mt-led{display:inline-block;width:9px;height:9px;border-radius:50%;background:#5a1e1a;vertical-align:-1px;box-shadow:inset 0 1px 1px rgba(0,0,0,.6)}
+.mt-led.on{background:#ff4b3e;box-shadow:0 0 8px #ff4b3e}
+.mt-save{width:100%}
+.mt-model{margin:14px 0 0;text-align:center;font:700 10px/1.4 var(--dots);letter-spacing:2.5px;color:var(--on-surf-v);opacity:.7}
+@keyframes sheet{from{transform:translateY(40px);opacity:.4}}
+@media (prefers-reduced-motion:reduce){.mixtape{animation:none!important}}
 @media (max-width:700px){
-  .mt-body{grid-template-columns:1fr;gap:14px}.mt-done{grid-template-columns:1fr;gap:16px}.mt-acts .btn{flex:1 1 auto;justify-content:center}.mt-seg{display:flex;width:100%;flex-wrap:nowrap}.mt-seg button{flex:1 1 0;min-width:0;padding:8px 2px;font-size:12.5px;line-height:16px}.mt-head p{display:none}
-  .mt-right>.mt-row>.mt-lab{min-width:0;width:100%}
-}
-html.broadcast .mixtape{display:none!important}
+  .mt-now{justify-items:center;text-align:center}.mt-now .mt-left{width:100%;max-width:280px}
+  .mt-info{justify-items:center}.mt-acts,.mt-links{justify-content:center}.mt-acts .hw{flex:1 1 auto}
+  .mt-title{font-size:24px}.mt-model{font-size:8px;letter-spacing:1px}
+  /* mixing slides up from the bottom; Loafie stays in view above it */
+  .mixtape.building{position:fixed;left:0;right:0;bottom:0;z-index:60;margin:0;max-height:64vh;overflow:auto;padding:10px 14px calc(16px + env(safe-area-inset-bottom));background:var(--surf);border-radius:16px 16px 0 0;border-top:0;box-shadow:0 -10px 30px rgba(0,0,0,.3);animation:sheet .25s ease-out}
+  .mixtape.building::before{content:'';display:block;width:40px;height:4px;border-radius:2px;background:var(--outline);margin:0 auto 8px}
+  html.mt-open .foot{padding-bottom:64vh}
+  .mt-well .mt-cass{max-width:200px}.mt-presets .hw{font-size:11.5px;padding:12px 2px}}
 
-/* MIXTAPE: the deck's own key, in the same family as SLEEP but a little louder */
-.mixbtn{height:32px;display:inline-flex;align-items:center;gap:7px;padding:0 12px 0 10px;border:1px solid var(--p);border-radius:6px;background:var(--p);color:var(--on-p);font:900 14px/1 var(--dots);letter-spacing:1px;cursor:pointer;white-space:nowrap;position:relative;overflow:hidden}
-.mixbtn svg{width:20px;height:20px;fill:currentColor;flex:0 0 auto}
-.mixbtn::before{content:'';position:absolute;inset:0;background:currentColor;opacity:0;transition:opacity .15s}.mixbtn:hover::before{opacity:.12}
-.mixbtn[aria-pressed="true"]{background:transparent;color:var(--p)}
-html.broadcast .mixbtn{display:none}
+/* the case corners: squarer, like moulded plastic */
+.unit{border-radius:10px}
 
-/* the MIXTAPE key glows like a lit pixel sign; on a first visit it also breathes, in stepped pixel rings */
-.mixbtn{overflow:visible;box-shadow:0 0 0 2px color-mix(in srgb,var(--glow,#e7c74e) 22%,transparent),0 0 10px color-mix(in srgb,var(--glow,#e7c74e) 35%,transparent)}
-.mixbtn.pulse{animation:mixglow 1.6s steps(4,end) infinite}
-@keyframes mixglow{0%{box-shadow:0 0 0 2px color-mix(in srgb,var(--glow,#e7c74e) 25%,transparent),0 0 8px color-mix(in srgb,var(--glow,#e7c74e) 30%,transparent)}
-  50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--glow,#e7c74e) 40%,transparent),0 0 0 6px color-mix(in srgb,var(--glow,#e7c74e) 18%,transparent),0 0 18px color-mix(in srgb,var(--glow,#e7c74e) 45%,transparent)}
-  100%{box-shadow:0 0 0 2px color-mix(in srgb,var(--glow,#e7c74e) 25%,transparent),0 0 8px color-mix(in srgb,var(--glow,#e7c74e) 30%,transparent)}}
-.mixbtn[aria-pressed="true"]{box-shadow:none;animation:none}
-.mixbtn svg{filter:drop-shadow(0 0 3px var(--glow,#e7c74e))}.mixbtn span{text-shadow:0 0 6px color-mix(in srgb,var(--glow,#e7c74e) 70%,transparent)}
-@media (prefers-reduced-motion:reduce){.mixbtn.pulse{animation:none}}
-/* first-visit teaser */
-.mt-teaser{margin-top:14px;display:flex;align-items:center;gap:16px;padding:10px 12px;border:1px dashed var(--outline);border-radius:8px}
-.mt-teaser[hidden]{display:none}
-.mt-tz-cass{flex:0 0 auto;width:120px}.mt-tz-cass svg{width:100%;height:auto;display:block}
-.mt-teaser p{margin:0;flex:1;font-size:15px;color:var(--on-surf)}.mt-teaser p span{color:var(--on-surf-v)}
-.mt-tz-x{flex:0 0 auto}
-@media (max-width:700px){.mt-teaser{gap:10px;padding:8px}.mt-tz-cass{width:84px}.mt-teaser p{font-size:14px}.mt-teaser p span{display:none}.mt-tz-go{padding:0 14px}}
-html.broadcast .mt-teaser{display:none!important}
+
+/* the fish key is a goldfish */
+.feedbtn{color:#ef8c32}.feedbtn svg{fill:#ef8c32}
+
+/* 80s stripes on the case: a little badge before the printed AM/FM legend, and on the tape deck's label */
+.unit-print span:last-child::before,.mt-where::before{content:'';display:inline-block;width:22px;height:9px;margin-right:10px;vertical-align:-1px;background:linear-gradient(var(--s1,#ef2a0c) 0 33.4%,var(--s2,#f2520f) 33.4% 66.7%,var(--s3,#f6860b) 66.7%)}
+.mt-where:empty::before{display:none}
+
+/* ================= the tuner =================
+   A digital readout like an 80s receiver: dark glass, glowing cyan segments, the band and position, the frequency
+   big, the name. ◀ ▶ step; FOCUS / CALM / TAPES are the band keys (and the three ways to use it). */
+.tuner{display:grid;grid-template-columns:40px minmax(0,1fr) 40px;grid-template-rows:auto auto;gap:6px 6px;align-items:stretch}
+.lcd{grid-column:2;min-width:0;height:48px;display:grid;grid-template-columns:auto 1fr;grid-template-rows:14px 1fr;column-gap:12px;align-items:center;padding:4px 12px;border-radius:4px;
+  background:linear-gradient(#0b1414,#071010);border:1px solid #000;box-shadow:inset 0 2px 6px rgba(0,0,0,.85),inset 0 0 0 1px rgba(99,221,209,.06);color:#63ddd1;font-family:var(--dots);overflow:hidden}
+.lcd-band{grid-column:1/-1;font:900 9px/1 var(--dots);letter-spacing:2px;color:#ff8a3d;text-shadow:0 0 6px rgba(255,138,61,.7)}
+.lcd-freq{font:900 11px/1 var(--dots);letter-spacing:1px;color:#63ddd1;opacity:.8;white-space:nowrap}
+.lcd-freq b{font-size:24px;letter-spacing:1px;opacity:1;text-shadow:0 0 8px rgba(99,221,209,.75)}
+.lcd-name{font:900 15px/1 var(--dots);letter-spacing:1.5px;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 0 7px rgba(99,221,209,.6)}
+.tunestep{grid-row:1;padding:0;font-size:13px;height:48px}
+#dialPrev{grid-column:1}#dialNext{grid-column:3}
+.bands{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.bandkey{padding:7px 4px;font-size:11px;letter-spacing:1.5px}
+.bandkey em{font-style:normal;display:inline-block;min-width:18px;margin-left:4px;padding:1px 4px;border-radius:2px;background:rgba(0,0,0,.18);font-size:10px}
+.bandkey[aria-pressed=true]{background:var(--s3);color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 12px color-mix(in srgb,var(--s3) 55%,transparent),0 2px 0 rgba(0,0,0,.35)}
+.bandkey[data-band=calm][aria-pressed=true]{background:var(--c-cyan)}
+.bandkey[data-band=tapes][aria-pressed=true]{background:var(--s1);color:#fff}
+@media (max-width:700px){.lcd{height:46px;padding:4px 10px;column-gap:8px}.lcd-freq b{font-size:20px}.lcd-name{font-size:13px}.tuner{grid-template-columns:34px minmax(0,1fr) 34px}.tunestep{height:46px}}
+
+
+/* ================= the rhythm composer =================
+   While you build, the deck is a charcoal drum-machine panel: the cassette and a pattern display on the left,
+   the pads and channel keys on the right, and a 16-step light run in the four 808 colours chasing the bar. */
+.mixtape.building{--pnl:#2b2c2f;--pnl2:#232427;--cream:#efe6d2;--run-r:#e8392b;--run-o:#f08a24;--run-y:#f2d14d;--run-w:#f4ecd8;
+  background:linear-gradient(var(--pnl),var(--pnl2));color:var(--cream);border-top:1px solid #000;border-radius:6px;padding:12px 16px 10px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 3px 0 rgba(0,0,0,.35)}
+.mixtape.building .mt-print,.mixtape.building .mt-model{color:#b8b1a3}
+.mixtape.building .mt-x{color:var(--cream)}
+.mixtape.building .mt-well .mt-cass svg{filter:drop-shadow(0 8px 14px rgba(0,0,0,.6))}
+.mixtape.building .mt-well .mt-cass{max-width:300px}
+@media (max-width:700px){.mixtape.building .mt-left{display:flex;flex-direction:column-reverse}.mixtape.building .mt-well .mt-cass{max-width:170px}}
+/* channel keys: dark, printed cream; lit = the orange-red lamp */
+.mixtape.building .mt-keys .hw{background:linear-gradient(#45464a,#36373a);color:var(--cream);border-color:#000;box-shadow:inset 0 1px 0 rgba(255,255,255,.14),0 2px 0 rgba(0,0,0,.5)}
+.mixtape.building .mt-keys .hw[aria-pressed=true]{background:linear-gradient(#ff9a3c,var(--run-o));color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.45),0 0 14px color-mix(in srgb,var(--run-o) 70%,transparent),0 2px 0 rgba(0,0,0,.5)}
+/* the four pads: red, orange, yellow, white, like the step keys on the 808 */
+.mixtape.building .mt-presets .hw{color:var(--ink);border-color:#000;box-shadow:inset 0 2px 0 rgba(255,255,255,.35),inset 0 -2px 0 rgba(0,0,0,.2),0 3px 0 rgba(0,0,0,.5);opacity:.78}
+.mixtape.building .mt-presets .hw:nth-child(1){background:var(--run-r)}.mixtape.building .mt-presets .hw:nth-child(2){background:var(--run-o)}
+.mixtape.building .mt-presets .hw:nth-child(3){background:var(--run-y)}.mixtape.building .mt-presets .hw:nth-child(4){background:var(--run-w)}
+.mixtape.building .mt-presets .hw[aria-pressed=true]{opacity:1;transform:translateY(1px);box-shadow:inset 0 2px 0 rgba(255,255,255,.45),0 0 16px rgba(255,255,255,.35),0 2px 0 rgba(0,0,0,.5)}
+.mixtape.building .mt-reroll{background:linear-gradient(#45464a,#36373a);color:var(--cream);border-color:#000}
+.mixtape.building .mt-save{background:linear-gradient(#ff9a3c,var(--run-o));color:var(--ink)}
+.mixtape.building .mt-led{box-shadow:inset 0 1px 1px rgba(0,0,0,.8)}
+/* the pattern display */
+.mt-seq{display:grid;gap:8px;margin-top:4px;padding:10px 12px 12px;border-radius:4px;background:#121315;border:1px solid #000;box-shadow:inset 0 2px 8px rgba(0,0,0,.8)}
+.mt-seqhead{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.mt-readout{font:900 11px/1 var(--dots);letter-spacing:1.5px;color:var(--run-o);text-shadow:0 0 6px color-mix(in srgb,var(--run-o) 70%,transparent);white-space:nowrap}
+.mt-grid{display:grid;gap:3px}
+.mt-ch{display:grid;grid-template-columns:22px repeat(16,minmax(0,1fr));gap:3px;align-items:center}
+.mt-ch span{font:900 9px/1 var(--dots);letter-spacing:1px;color:#8e887b}
+.mt-ch i{display:block;aspect-ratio:1;border-radius:2px;background:#2a2b2e}
+.mt-ch i:nth-child(4n+2){box-shadow:inset 1px 0 0 #3a3b3f} /* a tick every four steps */
+.mt-ch i.on{background:#f2d14d;box-shadow:0 0 5px rgba(242,209,77,.6)}
+.mt-ch i.now{background:#4a4b4f}
+.mt-ch i.on.now{background:#fff2b0;box-shadow:0 0 9px #f2d14d,0 0 18px rgba(242,209,77,.5)}
+.mt-ch[data-ch=bd] i.on{background:var(--run-r);box-shadow:0 0 5px rgba(232,57,43,.6)}.mt-ch[data-ch=bd] i.on.now{background:#ff9a8c;box-shadow:0 0 10px var(--run-r)}
+.mt-ch[data-ch=sd] i.on{background:var(--run-o);box-shadow:0 0 5px rgba(240,138,36,.6)}.mt-ch[data-ch=sd] i.on.now{background:#ffc98a;box-shadow:0 0 10px var(--run-o)}
+.mt-ch[data-ch=ky] i.on,.mt-ch[data-ch=bs] i.on{background:var(--run-w);box-shadow:0 0 5px rgba(244,236,216,.5)}.mt-ch[data-ch=ky] i.on.now,.mt-ch[data-ch=bs] i.on.now{background:#fff;box-shadow:0 0 10px #fff}
+/* the 16-step run */
+.mt-run{display:grid;grid-template-columns:repeat(16,minmax(0,1fr));gap:3px;margin-left:25px}
+.mt-run i{display:block;height:16px;border-radius:2px;border:1px solid #000;position:relative;opacity:.55;box-shadow:inset 0 1px 0 rgba(255,255,255,.3),0 1px 0 rgba(0,0,0,.6)}
+.mt-run i::after{content:'';position:absolute;top:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:rgba(0,0,0,.45)}
+.mt-run i.c0{background:var(--run-r)}.mt-run i.c1{background:var(--run-o)}.mt-run i.c2{background:var(--run-y)}.mt-run i.c3{background:var(--run-w)}
+.mt-run i.on{opacity:1}.mt-run i.on::after{background:#fff;box-shadow:0 0 6px #fff,0 0 12px var(--run-o)}
+@media (max-width:700px){.mt-seq{padding:8px}.mt-ch{grid-template-columns:18px repeat(16,minmax(0,1fr));gap:2px}.mt-ch span{font-size:8px}.mt-run{margin-left:20px;gap:2px}.mt-run i{height:12px}.mt-run i::after{top:2px;width:3px;height:3px;margin-left:-1.5px}.mt-readout{font-size:10px;letter-spacing:1px}
+  .mixtape.building{border-radius:16px 16px 0 0;padding:10px 14px calc(16px + env(safe-area-inset-bottom))}.mixtape.building::before{background:#55565a}}

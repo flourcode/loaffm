@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Loaf FM · Pet cats and chill</title>
-<meta name="description" content="Loaf FM is a clock radio with a cat named Loafie living inside it. Lo-fi stations composed live in your browser, rain, ocean waves, a fireplace or just the purr. Make a mixtape with your own band, mood and groove, and send it to someone.">
+<meta name="description" content="A tiny radio with a cat in it. Lo-fi, house, ambient and 8-bit made live in your browser. Pet the cat, stack some beats, save a mixtape and send it to a friend.">
 <link rel="canonical" href="https://loaffm.com/">
 
 <meta name="theme-color" content="#131313">
@@ -12,10 +12,14 @@
 <meta property="og:site_name" content="Loaf FM">
 <meta property="og:url" content="https://loaffm.com/">
 <meta property="og:title" content="Loaf FM · Pet cats and chill">
-<meta property="og:description" content="Loaf FM is a clock radio with a cat named Loafie living inside it. Lo-fi stations composed live in your browser, rain, ocean waves, a fireplace or just the purr. Make a mixtape with your own band, mood and groove, and send it to someone.">
-<meta property="og:image" content="https://loaffm.com/og.png">
+<meta property="og:description" content="A tiny radio with a cat in it. Lo-fi, house, ambient and 8-bit made live in your browser. Pet the cat, stack some beats, save a mixtape and send it to a friend.">
+<meta property="og:image" content="https://loaffm.com/og.png?v=20261023">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A pixel cassette labelled Rainy Sunday next to the Loaf FM board: a clock, the station on 93.7 FM, and Loafie on her desk.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Loaf FM · Pet cats and chill">
+<meta name="twitter:description" content="A tiny radio with a cat in it. Lo-fi, house, ambient and 8-bit made live in your browser. Pet the cat, stack some beats, save a mixtape and send it to a friend.">
+<meta name="twitter:image" content="https://loaffm.com/og.png?v=20261023">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -23,7 +27,7 @@
 <link rel="preload" href="fonts/doto-700.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="site.css">
 <link rel="stylesheet" href="board.css">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Loaf FM", "url": "https://loaffm.com/", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any (web browser)", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "description": "A pixel clock with a little cat who naps, wanders and purrs when you pet her, plus lofi music and calm sounds made live in the browser."}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "WebApplication", "name": "Loaf FM", "url": "https://loaffm.com/", "applicationCategory": "LifestyleApplication", "operatingSystem": "Any (web browser)", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}, "description": "A tiny radio with a cat in it. Lo-fi, house, ambient and 8-bit made live in your browser. Pet the cat, stack some beats, save a mixtape."}</script>
 
 </head>
 <body>
@@ -42,7 +46,7 @@
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></symbol>
 </svg>
 <header class="top">
-  <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM</a>
+  <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM<span class="stripes" aria-hidden="true"><i></i><i></i><i></i></span></a>
 </header>
 <div class="boardwrap">
 <section class="unit" id="unit" aria-label="Loaf FM board" aria-describedby="boardText">
@@ -59,172 +63,41 @@
   <div class="face" id="face">
     <div class="row">
       <button class="icon filled" type="button" id="playKey" aria-pressed="false" aria-label="Play radio" title="Play"><svg><use href="#i-play"/></svg><svg><use href="#i-stop"/></svg></button>
-      <div class="ctl grow st"><div class="field"><select id="station" aria-label="Station"></select><label>Station</label><svg class="arrow"><use href="#i-down"/></svg></div></div>
-      <div class="ctl grow vol"><span class="lbl"><span>Volume</span><output id="volOut">70</output></span><div class="fz"><button class="mutebtn" type="button" id="muteKey" aria-pressed="false" aria-label="Mute" title="Mute (M)"><svg><use href="#i-vol"/></svg><svg><use href="#i-mute"/></svg></button><input class="fader" type="range" id="volume" min="0" max="1" step="0.05" aria-label="Volume"></div></div>
-      <div class="dispwrap" id="dispWrap">
-        <button class="dispbtn" type="button" id="dispKey" aria-expanded="false" aria-controls="dispPanel" title="Display: palette and brightness"><canvas id="dispTile" aria-hidden="true"></canvas><span>DISPLAY</span></button>
+      <div class="ctl grow st">
+        <div class="tuner">
+          <button class="hw tunestep" type="button" id="dialPrev" aria-label="Previous">◀</button>
+          <div class="lcd" aria-live="polite"><span class="lcd-band" id="tuneBand"></span><span class="lcd-freq"><b id="tuneFreq"></b> FM</span><span class="lcd-name" id="tuneName"></span></div>
+          <button class="hw tunestep" type="button" id="dialNext" aria-label="Next">▶</button>
+          <div class="bands" role="group" aria-label="Band"><button class="hw bandkey" type="button" data-band="focus">FOCUS</button><button class="hw bandkey" type="button" data-band="calm">CALM</button><button class="hw bandkey" type="button" data-band="tapes">TAPES <em></em></button></div>
+          <select id="station" class="sr" aria-label="Station"></select>
+        </div>
       </div>
-      <button class="mixbtn" type="button" id="mixKey" aria-pressed="false" aria-label="Make a mixtape" title="Make a mixtape"><svg aria-hidden="true"><use href="#i-tape"/></svg><span>MIXTAPE</span></button>
-      <button class="sleepbtn" type="button" id="sleepKey" aria-pressed="false" aria-label="Sleep timer" title="Sleep timer"><span>SLEEP</span></button>
+      <div class="ctl grow vol"><span class="lbl"><span>Volume</span><output id="volOut">70</output></span><div class="fz"><button class="mutebtn" type="button" id="muteKey" aria-pressed="false" aria-label="Mute" title="Mute (M)"><svg><use href="#i-vol"/></svg><svg><use href="#i-mute"/></svg></button><input class="fader" type="range" id="volume" min="0" max="1" step="0.05" aria-label="Volume"></div></div>
+      <button class="dispbtn" type="button" id="dispKey" aria-label="Display: Pegs. Tap for the next look." title="Next look"><canvas id="dispTile" aria-hidden="true"></canvas></button>
       <button class="icon feedbtn" type="button" id="feedKey" aria-label="Give her a fish" title="Give her a fish"><svg><use href="#i-fish"/></svg></button>
-      <button class="icon sitbtn" type="button" id="sitKey" aria-pressed="false" aria-label="Sit for 20 minutes" title="Sit for 20 minutes"><svg><use href="#i-sit"/></svg></button>
-      <button class="icon floatbtn" type="button" id="floatKey" aria-pressed="false" aria-label="Float" title="Float: keep her on top of your other windows" hidden><svg><use href="#i-float"/></svg></button>
+      <button class="icon sitbtn" type="button" id="sitKey" aria-pressed="false" aria-label="Let her nap" title="Let her nap"><svg><use href="#i-sit"/></svg></button>
+      <button class="icon floatbtn" type="button" id="floatKey" aria-pressed="false" aria-label="Float" title="Keep her on top of your other windows" hidden><svg><use href="#i-float"/></svg></button>
     </div>
-    <div class="disppanel" id="dispPanel" hidden role="group" aria-label="Display">
-      <span class="dp-lab">Palette</span>
-      <div class="dots" id="dots" role="group" aria-label="Palette"></div>
-      <div class="ctl br"><span class="lbl"><span>Brightness</span><output id="brightnessOut">100</output></span><div class="fz"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg><input class="fader" type="range" id="brightness" min="0.1" max="1" step="0.05" aria-label="Brightness"></div></div>
-    </div>
+    <p class="unit-print" aria-hidden="true"><span>LOAF FM · MODEL LF-83</span><span>AM/FM STEREO · AUTO STOP</span></p>
   </div>
 </section>
 </div>
 <main id="page" class="home-page">
   <div class="band page1">
-  <section class="intro">
+  <section class="intro sleeve">
+    <div class="sleeve-top"><p class="kicker">Lo-fi radio · Side A</p><span class="badge" aria-hidden="true"><b>LF-83</b><i></i><i></i><i></i></span></div>
     <h1>Pet Cats and Chill</h1>
-    <p class="lede">Loaf FM is a clock radio with a cat named Loafie living inside it.</p>
-    <p class="lede">Put on some music, rain, brown noise, ocean waves, a fireplace or just the purr. Leave it running while you work, study, read, meditate, browse Reddit or go down some random internet rabbit hole.</p>
-    <p class="lede">The music is made live in your browser. No playlists, no outside radio streams, no account.</p>
-    <p class="lede">Or make your own mixtape: pick a band, a mood and a groove, give it a name and send it to someone.</p>
-    <p class="lede">It's a tiny radio station you can mess with, and a cat hanging out on your desk.</p>
+    <p class="lede">A tiny radio with a cat in it. Lock in to lo-fi, breathe with the rain, or make a mixtape and send it to a friend.</p>
+    <p class="sleeve-tags"><span class="tag tag-f">Focus</span><span class="tag tag-c">Calm</span><span class="tag tag-t">Tapes</span><span class="tag-plain">Never plays the same twice</span><a class="tag-plain tag-link" href="notes.html">Liner notes →</a></p>
   </section>
 
-  <section>
-    <h2>What's the catch?</h2>
-    <p>There isn't one. I like cats and lo-fi music, so I made this.</p>
-    <p>It's free. There are no ads and nothing to sign up for. I use Google Analytics to count visitors; the <a href="privacy.html">privacy page</a> explains what gets collected.</p>
-    <p>If you like Loaf FM, send it to another cat person.</p>
+  <section class="liner">
+    <h2><span class="trk">A1</span>Make a mixtape</h2>
+    <p>Hit <strong>MAKE A MIXTAPE</strong> under the radio. Pick a groove: Lo-fi, House, Ambient or 8-bit. Stack a bass, swap the keys, throw rain or a purr outside. Every tap lands while it plays, and it always sounds right. Don't love the melody? <strong>NEW TUNE</strong> rolls a fresh one.</p>
+    <p>Happy with it? <strong>SAVE TAPE</strong>. It names itself, pops out on a cassette and gets its own spot on the dial. Send the link and your friend hears your mix, played live in their browser.</p>
+    <p>Made a banger? Send it to <a href="mailto:hello@loaffm.com?subject=My%20mixtape">hello@loaffm.com</a>. The best ones might end up on a Loaf FM stream. Everything else about Loafie, the stations and how this works is in the <a href="notes.html">liner notes</a>.</p>
   </section>
 
-  <section>
-    <h2>Make a mixtape</h2>
-    <p>Hit the <strong>MIXTAPE</strong> button under the display, then pick:</p>
-    <dl class="items">
-      <dt>Vibe</dt><dd>The band. Lo-fi, Bossa Nova, House, Ambient or 8-bit, each with its own instruments and rhythm.</dd>
-      <dt>Mood</dt><dd>Sunny, Moody or Late Night.</dd>
-      <dt>Groove</dt><dd>Lazy sits back, Pocket grooves, Move moves.</dd>
-      <dt>Sound</dt><dd>How it was recorded: Studio, Cassette, Vinyl, or from the Next Room.</dd>
-      <dt>Weather</dt><dd>Rain, ocean, a fire or a purr outside the window.</dd>
-    </dl>
-    <p>Loaf FM handles everything else.</p>
-    <p>Every choice plays straight away, so you hear it as you go. Then give it a name and hit <strong>Make tape</strong>. The name quietly writes the tune: every name has its own little hook that keeps coming back, so your tape sounds like itself every time, whichever band plays it.</p>
-    <p>Not sure where to start? <strong>Roll tape</strong> picks a random one. Keep rolling until something sounds right.</p>
-    <p>Once it's made, it's yours: it gets its own spot on the dial. Hit <strong>Share</strong> to send it. The whole mixtape fits in the link, and whoever opens it hears the same tune and the same changes, played a little differently, because the band is playing it live. <strong>Save as picture</strong> gives you an image of your tape to post with it. Mixtapes are kept in your browser, nowhere else, so the link is also your backup.</p>
-    <p>Made a good one? Send me the link at <a href="mailto:hello@loaffm.com?subject=My%20mixtape">hello@loaffm.com</a>. The best ones might end up playing on a Loaf FM stream.</p>
-  </section>
-
-  <section>
-    <h2>Meet Loafie</h2>
-    <p>Loafie wanders around, loafs, grooms herself, yawns, watches the weather and stares off into space.</p>
-    <p>Leave her alone for a while and she'll fall asleep. Come back and she'll eventually wake up and wander around again.</p>
-    <p><strong>Pet her:</strong> hold on the cat and she'll close her eyes and purr. Keep going and she'll fall asleep.</p>
-    <p><strong>Call her:</strong> tap the desk and you'll hear a quiet “pspsps.”</p>
-    <p><strong>Feed her:</strong> tap the fish. She'll come over, eat it and purr.</p>
-    <p>She lives on a little keyboard. Look under her feet while the music plays and you'll see the keys light up.</p>
-    <p>She has a cardboard box too. Sometimes she gets in on her own. Tap the box to call her over. Tap it again while she's inside and she'll duck down.</p>
-  </section>
-
-  <section>
-    <h2>Pick a station</h2>
-    <p>Loaf FM has five, each on its own spot on the dial. The music is composed while you listen, so it changes as it plays.</p>
-    <dl class="items">
-      <dt>Late Shift</dt><dd>Warm electric piano and a sparse beat. Good for working late.</dd>
-      <dt>Rainy Window</dt><dd>Soft keys, a little melody and rain. Good for studying, reading or getting something done.</dd>
-      <dt>CRT Dreams</dt><dd>Analog pads, a slow arpeggio and a few electronic blips. A little more retro and synthy.</dd>
-      <dt>Sunday Loaf</dt><dd>Jazz chords, brushes and a quiet purr underneath. The least urgent station.</dd>
-      <dt>Desert Night</dt><dd>Slow pads, distant bells and crickets. Good for reading, meditation or winding down.</dd>
-    </dl>
-    <p>Everything is composed and synthesised in your browser. There are no recordings, samples or third-party radio streams.</p>
-  </section>
-
-  <section>
-    <h2>Or skip the music</h2>
-    <p>There's also purr, rain, ocean waves, fireplace and brown noise.</p>
-    <p>Pick one, set the volume and leave it running.</p>
-  </section>
-
-  <section>
-    <h2>Sleep timer</h2>
-    <p>Like every clock radio, there's a <strong>SLEEP</strong> button. Tap it for 15, 30 or 60 minutes; when the time's up the music fades out. Tap again to change it or turn it off.</p>
-  </section>
-
-  <section>
-    <h2>Twenty minutes</h2>
-    <p>Hit the big <strong>Z</strong> for twenty quiet minutes.</p>
-    <p>Loafie curls up, the display dims and the dots along the bottom mark the time.</p>
-    <p>There's no guided meditation. Sit quietly, close your eyes, watch the cat or do whatever works for you.</p>
-    <p>A soft tone plays when the twenty minutes are up.</p>
-    <p>Loafie gets a fish.</p>
-  </section>
-
-  <section>
-    <h2>Pick a display</h2>
-    <p>There are six.</p>
-    <dl class="items">
-      <dt>Pegs</dt><dd>The default. Colored glowing dots inspired by the light-up peg toys a lot of us had as kids.</dd>
-      <dt>Teal VFD</dt><dd>Like the display on an old stereo.</dd>
-      <dt>Amber</dt><dd>Old clock radio.</dd>
-      <dt>Phosphor</dt><dd>Old computer terminal.</dd>
-      <dt>Moonlight</dt><dd>Cooler and dimmer for late at night.</dd>
-      <dt>Ember</dt><dd>Red LEDs and fireplace glow.</dd>
-    </dl>
-    <p>Tap <strong>DISPLAY</strong> to switch palettes or turn the brightness down.</p>
-  </section>
-
-  <section>
-    <h2>Her sky</h2>
-    <p>Each station has its own sky. Rainy Window and Rain bring rain. Late Shift, Desert Night, Ocean and Fireplace get stars, and every so often a meteor. CRT Dreams gets falling green code. Sunday Loaf gets falling leaves. Purr and brown noise keep it plain.</p>
-    <p>When nothing's playing, the sky follows the real world: stars and the actual phase of the moon at night, snow in winter, petals in spring, fireflies on summer nights, leaves in autumn, and some days it rains.</p>
-    <p>Loaf FM doesn't need your location. It uses the date and time zone already on your device.</p>
-  </section>
-
-  <section>
-    <h2>Keep her in the corner</h2>
-    <p>On a computer, hit the window button and Loaf FM floats over your other apps.</p>
-    <p>It's useful if you want the clock and cat sitting off to the side while you work, study or browse.</p>
-    <p>In Chrome and Edge you can still pet her, call her over, give her a fish or start a sit from the floating window.</p>
-  </section>
-
-  <section>
-    <h2>Got an old tablet?</h2>
-    <p>Loaf FM makes a pretty good desk clock.</p>
-    <p>Open it on the tablet, add it to the home screen, set the tablet to stay awake while charging and prop it up somewhere.</p>
-    <p>That's about it.</p>
-  </section>
-
-  <section>
-    <h2>It works offline</h2>
-    <p>You can install Loaf FM from your browser and run it like a small app without the rest of the website around it.</p>
-    <p>Once it's loaded, the cat, clock, stations and sounds work without an internet connection.</p>
-  </section>
-
-  <section>
-    <h2>Nerd stuff</h2>
-    <p>Loaf FM isn't playing a bunch of audio files.</p>
-    <p>The music is generated in real time with the Web Audio API. The synths, drums, bass, chord changes, melodies, rain, waves, fire and purr are made in your browser while you're listening.</p>
-    <p>There are no prerecorded songs, samples, Spotify embeds or internet radio streams.</p>
-    <p>It's procedural, not AI-generated.</p>
-    <p>Once the app is cached, most of it works offline. Your browser is basically the synthesizer.</p>
-    <p>A mixtape link is just a few choices and a name. Your browser plays the rest.</p>
-    <p>The whole thing is deliberately small, because a clock radio with a cat in it probably shouldn't need 40 MB of JavaScript.</p>
-    <p>There are no keyboard shortcuts, on purpose. You're probably typing in another window, and a stray key shouldn't stop the music.</p>
-    <p>More unnecessary details will probably appear here over time.</p>
-  </section>
-
-  <section>
-    <h2>What's actually in this thing</h2>
-    <dl class="items">
-      <dt>Music and sounds</dt><dd>Generated by Loaf FM's own code in your browser. No recordings, samples or outside radio streams.</dd>
-      <dt>Fonts</dt><dd>Doto and IBM Plex Sans, under the SIL Open Font License.</dd>
-      <dt>The cat and the board</dt><dd>Made for Loaf FM.</dd>
-    </dl>
-  </section>
-
-  <section>
-    <h2>Say hi</h2>
-    <p>Found something broken? Have an idea? Have a good cat picture?</p>
-    <p><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></p>
-  </section>
   </div>
 </main>
 <footer class="foot">
@@ -232,7 +105,7 @@
     <p>© 2026 Loaf FM</p>
     <p class="credits">Music and sounds are generated live in your browser.</p>
   </div>
-  <nav aria-label="Footer"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
+  <nav aria-label="Footer"><a href="notes.html">Liner notes</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
 </footer>
 <script src="analytics.js" defer></script>
 <script src="board.js" defer></script>

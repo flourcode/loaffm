@@ -9,14 +9,16 @@
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-500.woff2) format('woff2');font-weight:500;font-display:swap}
 @font-face{font-family:'IBM Plex Sans';src:url(fonts/plex-600.woff2) format('woff2');font-weight:600 700;font-display:swap}
 :root{
-  --p:#c6c6c6; --on-p:#303030; --p-c:#474747; --on-p-c:#e2e2e2; --s:#c6c6c6; --s-c:#474747; --on-s-c:#e2e2e2; --surf:#141414; --surf-low:#1b1b1b; --surf-c:#1f1f1f; --surf-high:#2a2a2a; --surf-highest:#353535; --on-surf:#e2e2e2; --on-surf-v:#c6c6c6; --outline:#919191; --outline-v:#474747;
+  --p:#d8cdb8; --on-p:#24221e; --p-c:#3b3833; --on-p-c:#ece6d8; --s:#d8cdb8; --s-c:#34312c; --on-s-c:#ece6d8; --surf:#121110; --surf-low:#171614; --surf-c:#1d1c1a; --surf-high:#262422; --surf-highest:#2f2d2a; --on-surf:#ece6d8; --on-surf-v:#bdb5a5; --outline:#77705f; --outline-v:#3b3833;
+  /* printed legends on the plastic: 80s consumer-electronics colours */
+  --c-orange:#f6860b; --s1:#ef2a0c; --s2:#f2520f; --s3:#f6860b; --sleeve:#1b1a18; --c-cyan:#3ebfd0; --c-yellow:#f2d46b; --c-mint:#7fdcb2; --c-coral:#f0786a; --ink:#1d1c21;
   --panel:#050607; --cat:#b8b1a6; --cat-stripe:#6f6961;
   --font:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif; --display:'Doto','Courier New',monospace; --dots:'Doto','Courier New',monospace;
   --gutter:max(16px,env(safe-area-inset-left,0px)); --wide:1200px; --read:720px;
   color-scheme:dark;
 }
 @media (prefers-color-scheme:light){:root:not([data-theme="dark"]){
-  --p:#5e5e5e; --on-p:#ffffff; --p-c:#e2e2e2; --on-p-c:#474747; --s:#5e5e5e; --s-c:#e2e2e2; --on-s-c:#474747; --surf:#fdfdfd; --surf-low:#f3f3f3; --surf-c:#eeeeee; --surf-high:#e8e8e8; --surf-highest:#e2e2e2; --on-surf:#1b1b1b; --on-surf-v:#474747; --outline:#777777; --outline-v:#c6c6c6; --cat:#827a70; --cat-stripe:#5d5851; color-scheme:light}}
+  --p:#3a3940; --on-p:#f7f7f5; --p-c:#e1e1dd; --on-p-c:#24221e; --s:#4d483f; --s-c:#e1e1dd; --on-s-c:#24221e; --surf:#f7f7f5; --surf-low:#f1f1ee; --surf-c:#ebebe8; --surf-high:#e1e1dd; --surf-highest:#d6d6d1; --on-surf:#1d1c21; --on-surf-v:#55545a; --outline:#8e8d88; --outline-v:#d8d7d2; --cat:#827a70; --cat-stripe:#5d5851; color-scheme:light}}
 :root.light{color-scheme:light;--cat:#827a70;--cat-stripe:#5d5851}
 
 *{box-sizing:border-box}
@@ -34,7 +36,7 @@ img{max-width:100%;height:auto}
 .brand{white-space:nowrap;display:inline-flex;align-items:center;gap:10px;color:var(--on-surf);text-decoration:none;font:900 25px/1 var(--dots);letter-spacing:.5px}
 .brand svg{width:40px;height:24px;flex:0 0 auto}
 .nav{display:flex;gap:4px;flex-wrap:wrap}
-.nav a{color:var(--on-surf-v);text-decoration:none;font:500 14px/20px var(--font);letter-spacing:.1px;padding:10px 14px;border-radius:20px}
+.nav a{color:var(--on-surf-v);text-decoration:none;font:900 14px/20px var(--dots);letter-spacing:1px;text-transform:uppercase;padding:10px 12px;border-radius:4px}
 .nav a:hover{background:color-mix(in srgb,var(--on-surf) 8%,transparent);color:var(--on-surf)}
 .nav a[aria-current="page"]{background:var(--s-c);color:var(--on-s-c)}
 
@@ -66,7 +68,8 @@ h3{font-size:18px}
 .table th{font-weight:500;color:var(--on-surf-v)}
 
 /* Buttons (M3) */
-.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 24px;border:0;border-radius:20px;font:500 14px/20px var(--font);letter-spacing:.1px;cursor:pointer;text-decoration:none;position:relative;overflow:hidden}
+.btn{display:inline-flex;align-items:center;gap:8px;height:40px;padding:0 20px;border:1px solid rgba(0,0,0,.35);border-radius:4px;font:900 14px/20px var(--dots);letter-spacing:1px;text-transform:uppercase;cursor:pointer;text-decoration:none;position:relative;overflow:hidden;box-shadow:inset 0 1px 0 rgba(255,255,255,.25),0 2px 0 rgba(0,0,0,.3)}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(255,255,255,.2),0 1px 0 rgba(0,0,0,.3)}
 .btn.filled{background:var(--p);color:var(--on-p)}
 .btn.tonal{background:var(--s-c);color:var(--on-s-c)}
 .btn.outlined{background:transparent;color:var(--p);box-shadow:inset 0 0 0 1px var(--outline)}
@@ -116,3 +119,80 @@ kbd{font:500 13px/1 ui-monospace,SFMono-Regular,Menlo,monospace;padding:3px 6px;
 /* 404 */
 .lostwrap{margin:8px 0 20px;max-width:440px}
 .lost{display:block;width:100%;height:auto;border-radius:12px;box-shadow:0 0 0 7px #1c1c1e}
+
+/* phones: the radio and Loafie own the first screen; the intro is one short line */
+.lede.short{display:none}
+@media (max-width:700px){.lede.short{display:block}.lede.long{display:none}}
+
+/* liner notes and stickers: a few sections printed like cassette inserts and instruction labels */
+.liner{background:var(--surf-low);border:1px solid var(--outline-v);border-top:6px solid var(--c-orange);border-radius:4px;padding:18px 22px 10px;box-shadow:0 2px 0 rgba(0,0,0,.08)}
+.liner h2{border-bottom:1px dashed var(--outline)!important}
+.sticker{border:2px dashed var(--outline);border-radius:4px;padding:16px 20px 6px;background:color-mix(in srgb,var(--c-yellow) 18%,var(--surf))}
+.print{font:900 11px/1.4 var(--dots);letter-spacing:2px;text-transform:uppercase;color:var(--on-surf-v)}
+
+/* ================= 80s: the stripes =================
+   Red, red-orange and orange, straight off a tape sleeve. They turn up on the logo, the intro (a cassette J-card),
+   the tracklist, the radio case and the footer; the stripe colours stay the same in light and dark. */
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]){--sleeve:#ffffff}}
+:root.light{--sleeve:#ffffff}
+.brand .stripes{display:inline-grid;gap:2px;width:24px;margin-left:10px;vertical-align:middle}
+.brand .stripes i{display:block;height:3px}
+.stripes i:nth-child(1),.badge i:nth-of-type(1){background:var(--s1)}.stripes i:nth-child(2),.badge i:nth-of-type(2){background:var(--s2)}.stripes i:nth-child(3),.badge i:nth-of-type(3){background:var(--s3)}
+/* the intro is the tape's J-card: kicker, big title, a model badge, label boxes, and the stripes sweeping up from the corner */
+.page1 .sleeve{position:relative;overflow:hidden;margin-top:28px;padding:22px 26px 96px;border-radius:6px;background:var(--sleeve);border:1px solid var(--outline-v);box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.sleeve::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(150deg,transparent 73%,var(--s1) 73% 78.5%,var(--s2) 78.5% 84%,var(--s3) 84% 89.5%,transparent 89.5%)}
+.sleeve>*{position:relative;z-index:1}
+.sleeve-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:6px}
+.kicker{margin:6px 0 0;font:italic 400 15px/1.2 var(--font);letter-spacing:1.5px;text-transform:uppercase;color:var(--on-surf-v)}
+.badge{display:inline-grid;gap:3px;width:118px;flex:0 0 auto}
+.badge b{display:block;border:2px solid currentColor;border-radius:9px;padding:4px 0 2px;text-align:center;font:900 24px/1 var(--dots);letter-spacing:1px;margin-bottom:6px}
+.badge i{display:block;height:9px}
+.page1 .sleeve h1{border-bottom:0;padding-bottom:0;margin-top:-10px}
+.page1 .sleeve .lede{max-width:56ch}
+.sleeve-tags{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;margin:18px 0 0}
+.tag{border:1.5px solid currentColor;border-radius:9px;padding:5px 12px 4px;font:500 13px/1.2 var(--font);letter-spacing:1.2px;text-transform:uppercase}
+.tag-plain{font:500 13px/1.2 var(--font);letter-spacing:1.2px;text-transform:uppercase;color:var(--on-surf-v)}
+@media (max-width:700px){.page1 .sleeve{padding:16px 16px 120px}.page1 .sleeve h1{margin-top:4px}.sleeve::after{background:linear-gradient(162deg,transparent 76%,var(--s1) 76% 81%,var(--s2) 81% 86%,var(--s3) 86% 91%,transparent 91%)}.badge{width:84px}.badge b{font-size:17px}.badge i{height:6px}}
+/* tracklist: A1, A2... in a printed box, like the label on a tape */
+.trk{display:inline-block;margin-right:14px;padding:3px 8px 1px;border:1.5px solid var(--s1);border-radius:7px;color:var(--s1);font:900 .62em/1 var(--dots);letter-spacing:1px;vertical-align:.18em}
+.side-b{display:flex;align-items:center;gap:16px;margin:56px 0 28px;font:900 18px/1 var(--dots);letter-spacing:4px;text-transform:uppercase;color:var(--on-surf-v)}
+.side-b::before,.side-b::after{content:'';flex:1;height:9px;background:linear-gradient(var(--s1) 0 33.4%,var(--s2) 33.4% 66.7%,var(--s3) 66.7%)}
+/* the A1 liner note: stripes along the top instead of one orange edge */
+.liner{border-top:1px solid var(--outline-v)!important;background-image:linear-gradient(var(--s1) 0 4px,var(--s2) 4px 8px,var(--s3) 8px 12px,transparent 12px)!important;padding-top:30px!important}
+/* the footer sits under a stripe bar */
+.foot{position:relative;border-top:0!important}
+.foot::before{content:'';position:absolute;left:var(--gutter);right:var(--gutter);top:0;height:9px;background:linear-gradient(var(--s1) 0 33.4%,var(--s2) 33.4% 66.7%,var(--s3) 66.7%)}
+
+/* the liner notes page: the tracklist, in its own sleeve */
+.notes{padding-top:28px}
+.notes>section:first-child h2{margin-top:0}
+.tag-link{text-decoration:none;color:var(--s1)}
+.tag-link:hover{text-decoration:underline}
+@media (max-width:700px){.unit-print{font-size:8px;letter-spacing:1px;flex-wrap:wrap;gap:2px 12px;margin-left:0;margin-right:0}.unit-print span{white-space:nowrap}.unit-print span:last-child{margin-left:auto}}
+
+/* ================= every page is a tape =================
+   The legal pages, the 404 and the liner notes get the same J-card header as the home page, so nothing on the site
+   looks like a different product. Pill buttons are gone: anything you press is a hardware key. */
+.article{padding-top:28px}
+.article>.sleeve{position:relative;overflow:hidden;max-width:none;padding:18px 24px 60px;margin-bottom:28px;border-radius:6px;background:var(--sleeve);border:1px solid var(--outline-v);box-shadow:0 2px 0 rgba(0,0,0,.12)}
+.article>.sleeve::after{content:'';position:absolute;inset:0;pointer-events:none;background:linear-gradient(150deg,transparent 78%,var(--s1) 78% 83%,var(--s2) 83% 88%,var(--s3) 88% 93%,transparent 93%)}
+.article>.sleeve>*{position:relative;z-index:1}
+.article>.sleeve h1{margin:-6px 0 6px;border:0;padding:0}
+.article>.sleeve .meta{font:italic 400 13px/1.3 var(--font);letter-spacing:1px;text-transform:uppercase;color:var(--on-surf-v)}
+.article h2{font-size:22px;padding-bottom:6px;border-bottom:1px solid var(--outline-v)}
+.article h2::before{content:'';display:inline-block;width:14px;height:6px;margin-right:10px;vertical-align:2px;background:linear-gradient(var(--s1) 0 33.4%,var(--s2) 33.4% 66.7%,var(--s3) 66.7%)}
+.notes.page1{padding-top:0}
+.notes>.sleeve{margin-top:28px;padding-bottom:70px}
+.page1 .sleeve.sleeve-sm h1{margin-top:-6px}
+/* the liner-notes page gets its own card too */
+.hw-link{display:inline-flex;align-items:center;text-decoration:none;font:900 14px/1 var(--dots);letter-spacing:1px;text-transform:uppercase;padding:14px 18px;border:1px solid rgba(0,0,0,.4);border-radius:3px;background:var(--c-orange);color:var(--ink);box-shadow:inset 0 1px 0 rgba(255,255,255,.35),0 2px 0 rgba(0,0,0,.35)}
+.hw-link:hover{filter:brightness(1.05)}.hw-link:active{transform:translateY(1px)}
+.table th{font:900 11px/1.4 var(--dots);letter-spacing:1.5px;text-transform:uppercase;color:var(--on-surf-v)}
+/* the 404 board sits in the sleeve like a photo */
+.lostwrap{margin:0 0 20px}
+@media (max-width:700px){.article>.sleeve{padding:14px 16px 56px}.article>.sleeve::after{background:linear-gradient(162deg,transparent 80%,var(--s1) 80% 85%,var(--s2) 85% 90%,var(--s3) 90% 95%,transparent 95%)}}
+
+@media (max-width:700px){.unit-print span:last-child{display:none}}
+
+.tag-f{border-color:var(--s3);color:var(--s3)}.tag-c{border-color:var(--c-cyan);color:var(--c-cyan)}.tag-t{border-color:var(--s1);color:var(--s1)}
+:root.light .tag-c{color:#1f8c99;border-color:#1f8c99}

@@ -13,9 +13,13 @@
 <meta property="og:url" content="https://loaffm.com/privacy.html">
 <meta property="og:title" content="Privacy">
 <meta property="og:description" content="What Loaf FM stores, what it sends where, and what it does not do. No accounts, no ads, no location.">
-<meta property="og:image" content="https://loaffm.com/og.png">
+<meta property="og:image" content="https://loaffm.com/og.png?v=20261023">
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="A pixel cassette labelled Rainy Sunday next to the Loaf FM board: a clock, the station on 93.7 FM, and Loafie on her desk.">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Privacy">
+<meta name="twitter:description" content="What Loaf FM stores, what it sends where, and what it does not do. No accounts, no ads, no location.">
+<meta name="twitter:image" content="https://loaffm.com/og.png?v=20261023">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32" type="image/png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -42,7 +46,7 @@
   <symbol id="i-down" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></symbol>
 </svg>
 <header class="top">
-  <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM</a>
+  <a class="brand" href="/" aria-label="Loaf FM home"><svg viewBox="0 0 20 12" aria-hidden="true"><use href="#i-cat"/></svg>Loaf FM<span class="stripes" aria-hidden="true"><i></i><i></i><i></i></span></a>
 </header>
 <div class="boardwrap">
 <section class="unit" id="unit" aria-label="Loaf FM board" aria-describedby="boardText">
@@ -59,27 +63,28 @@
   <div class="face" id="face">
     <div class="row">
       <button class="icon filled" type="button" id="playKey" aria-pressed="false" aria-label="Play radio" title="Play"><svg><use href="#i-play"/></svg><svg><use href="#i-stop"/></svg></button>
-      <div class="ctl grow st"><div class="field"><select id="station" aria-label="Station"></select><label>Station</label><svg class="arrow"><use href="#i-down"/></svg></div></div>
-      <div class="ctl grow vol"><span class="lbl"><span>Volume</span><output id="volOut">70</output></span><div class="fz"><button class="mutebtn" type="button" id="muteKey" aria-pressed="false" aria-label="Mute" title="Mute (M)"><svg><use href="#i-vol"/></svg><svg><use href="#i-mute"/></svg></button><input class="fader" type="range" id="volume" min="0" max="1" step="0.05" aria-label="Volume"></div></div>
-      <div class="dispwrap" id="dispWrap">
-        <button class="dispbtn" type="button" id="dispKey" aria-expanded="false" aria-controls="dispPanel" title="Display: palette and brightness"><canvas id="dispTile" aria-hidden="true"></canvas><span>DISPLAY</span></button>
+      <div class="ctl grow st">
+        <div class="tuner">
+          <button class="hw tunestep" type="button" id="dialPrev" aria-label="Previous">◀</button>
+          <div class="lcd" aria-live="polite"><span class="lcd-band" id="tuneBand"></span><span class="lcd-freq"><b id="tuneFreq"></b> FM</span><span class="lcd-name" id="tuneName"></span></div>
+          <button class="hw tunestep" type="button" id="dialNext" aria-label="Next">▶</button>
+          <div class="bands" role="group" aria-label="Band"><button class="hw bandkey" type="button" data-band="focus">FOCUS</button><button class="hw bandkey" type="button" data-band="calm">CALM</button><button class="hw bandkey" type="button" data-band="tapes">TAPES <em></em></button></div>
+          <select id="station" class="sr" aria-label="Station"></select>
+        </div>
       </div>
-      <button class="mixbtn" type="button" id="mixKey" aria-pressed="false" aria-label="Make a mixtape" title="Make a mixtape"><svg aria-hidden="true"><use href="#i-tape"/></svg><span>MIXTAPE</span></button>
-      <button class="sleepbtn" type="button" id="sleepKey" aria-pressed="false" aria-label="Sleep timer" title="Sleep timer"><span>SLEEP</span></button>
+      <div class="ctl grow vol"><span class="lbl"><span>Volume</span><output id="volOut">70</output></span><div class="fz"><button class="mutebtn" type="button" id="muteKey" aria-pressed="false" aria-label="Mute" title="Mute (M)"><svg><use href="#i-vol"/></svg><svg><use href="#i-mute"/></svg></button><input class="fader" type="range" id="volume" min="0" max="1" step="0.05" aria-label="Volume"></div></div>
+      <button class="dispbtn" type="button" id="dispKey" aria-label="Display: Pegs. Tap for the next look." title="Next look"><canvas id="dispTile" aria-hidden="true"></canvas></button>
       <button class="icon feedbtn" type="button" id="feedKey" aria-label="Give her a fish" title="Give her a fish"><svg><use href="#i-fish"/></svg></button>
-      <button class="icon sitbtn" type="button" id="sitKey" aria-pressed="false" aria-label="Sit for 20 minutes" title="Sit for 20 minutes"><svg><use href="#i-sit"/></svg></button>
-      <button class="icon floatbtn" type="button" id="floatKey" aria-pressed="false" aria-label="Float" title="Float: keep her on top of your other windows" hidden><svg><use href="#i-float"/></svg></button>
+      <button class="icon sitbtn" type="button" id="sitKey" aria-pressed="false" aria-label="Let her nap" title="Let her nap"><svg><use href="#i-sit"/></svg></button>
+      <button class="icon floatbtn" type="button" id="floatKey" aria-pressed="false" aria-label="Float" title="Keep her on top of your other windows" hidden><svg><use href="#i-float"/></svg></button>
     </div>
-    <div class="disppanel" id="dispPanel" hidden role="group" aria-label="Display">
-      <span class="dp-lab">Palette</span>
-      <div class="dots" id="dots" role="group" aria-label="Palette"></div>
-      <div class="ctl br"><span class="lbl"><span>Brightness</span><output id="brightnessOut">100</output></span><div class="fz"><svg class="ico" aria-hidden="true"><use href="#i-sun"/></svg><input class="fader" type="range" id="brightness" min="0.1" max="1" step="0.05" aria-label="Brightness"></div></div>
-    </div>
+    <p class="unit-print" aria-hidden="true"><span>LOAF FM · MODEL LF-83</span><span>AM/FM STEREO · AUTO STOP</span></p>
   </div>
 </section>
 </div>
 <main id="page" class="article">
-  <header>
+  <header class="sleeve sleeve-sm">
+    <div class="sleeve-top"><p class="kicker">Loaf FM · SIDE B · 1</p><span class="badge" aria-hidden="true"><b>LF-83</b><i></i><i></i><i></i></span></div>
     
     <h1>Privacy</h1>
     <p class="meta">Last updated October 22, 2026</p>
@@ -88,7 +93,7 @@
   <p class="lede">Short version: Loaf FM has no accounts and no ads. It uses Google Analytics to count visits. Your settings stay in your browser.</p>
 
   <h2>What's stored, and where</h2>
-  <p>Your palette, sound, volume, brightness and any mixtapes you save are saved in your browser's local storage on your device, so the board looks the same next time. We never receive them. Clearing your browser's site data removes them.</p>
+  <p>Your palette, sound, volume and any mixtapes you save are saved in your browser's local storage on your device, so the board looks the same next time. A single note in session storage remembers that Loafie has already made her entrance this visit. We never receive them. Clearing your browser's site data removes them.</p>
   <p>If you install Loaf FM as an app, your browser also keeps a copy of the site's pages so it opens offline.</p>
 
   <h2>Your location</h2>
@@ -125,7 +130,7 @@
     <p>© 2026 Loaf FM</p>
     <p class="credits">Music and sounds are generated live in your browser.</p>
   </div>
-  <nav aria-label="Footer"><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
+  <nav aria-label="Footer"><a href="notes.html">Liner notes</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="mailto:hello@loaffm.com">hello@loaffm.com</a></nav>
 </footer>
 <script src="analytics.js" defer></script>
 <script src="board.js" defer></script>

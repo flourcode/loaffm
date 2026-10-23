@@ -40,29 +40,53 @@ function wrap(s,area,font='big'){const words=s.split(' ');const lines=[];let cur
 const locale=navigator.language||'en-US';
 const H24=(()=>{try{return !new Intl.DateTimeFormat(locale,{hour:'numeric'}).resolvedOptions().hour12;}catch(e){return false;}})();
 const UNIT=/US|LR|MM/.test(locale.split('-')[1]||'')?'F':'C';
-const DEFAULTS={palette:'pegs',brightness:1,volume:0.7,station:'gen:purr',stationName:'Purr',tapes:[]};
+const DEFAULTS={palette:'pegs',volume:0.7,station:'gen:late',stationName:'Late Shift',tapes:[]};
 let S=Object.assign({},DEFAULTS);
-try{const saved=JSON.parse(localStorage.getItem(STORE)||'null');if(saved&&typeof saved==='object')Object.assign(S,saved);}catch(e){}
+let FIRST=true;try{const saved=JSON.parse(localStorage.getItem(STORE)||'null');if(saved&&typeof saved==='object'){Object.assign(S,saved);FIRST=false;}}catch(e){}
+if('brightness' in S||'sitStart' in S||'mtSeen' in S){delete S.brightness;delete S.sitStart;delete S.mtSeen;try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}} /* manual dim, the 20-minute sit and the first-visit teaser are gone: nobody stays dim or stuck asleep */
 /* ================= Mixtapes =================
    A mixtape is a small recipe for one of Loaf FM's stations: which station it starts from, mood, drums, weather, tempo,
    busyness and tone, plus a name and a label colour. It's a few numbers, so it saves in the browser and fits in a link. */
-const TAPE_COLORS=['#e2504a','#e8902f','#e7c74e','#5ed363','#58aaf5','#e064c0','#f1e7cf'],TAPE_MAX=10;
+/* eight cassette shells in the era's design language (no real brands); a new tape gets one at random */
+const SHELLS=[
+  {sh:'#e7dcc3',hi:'#f4ecd9',lab:'#e8902f',strip:'#fff7e6',ink:'#1d1c21',acc:'#e8902f'},             /* cream and orange */
+  {sh:'#232227',hi:'#3a3940',lab:'#f2c94c',strip:'#232227',ink:'#f2c94c',acc:'#f2c94c'},             /* black and yellow */
+  {sh:'#6fa9de',hi:'#a3cbf0',lab:'#dcecf9',strip:'#ffffff',ink:'#1d3557',acc:'#58aaf5',clear:1},     /* see-through blue */
+  {sh:'#b8e2cb',hi:'#d8f1e3',lab:'#f6f1e2',strip:'#f6f1e2',ink:'#1d1c21',acc:'#4fc48d',band:'#4fc48d'},/* mint and cream */
+  {sh:'#26252b',hi:'#3c3b43',lab:'#ff8a73',strip:'#fff1e6',ink:'#1d1c21',acc:'#ff8a73'},             /* black and coral */
+  {sh:'#c7b6ea',hi:'#e0d5f5',lab:'#9a72e0',strip:'#f7f2ff',ink:'#3b2a66',acc:'#b293ff'},             /* lavender */
+  {sh:'#55545c',hi:'#7a7983',lab:'#d9d4c7',strip:'#efebe0',ink:'#1d1c21',acc:'#cfc8b8',clear:1},     /* smoked clear */
+  {sh:'#f2efe8',hi:'#ffffff',lab:'#ffffff',strip:'#ffffff',ink:'#1d1c21',acc:'#e2504a',band:'#e2504a'}];/* white with a red stripe */
+const TAPE_MAX=50;
+const DAYNAME=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+/* the tracks you start with: a little restrained on purpose, so the first layer you add pays off. [name, layers, what to suggest first] */
+const BASES=[['Lo-fi',{d:1,b:0,k:1,w:0,p:1},{b:1,w:1}],['House',{d:3,b:0,k:3,w:0,p:1},{b:2,w:0}],['Ambient',{d:0,b:1,k:3,w:0,p:0},{w:2,d:1}],['8-bit',{d:2,b:0,k:4,w:0,p:2},{b:3}]];
+const LEGACY=[{d:1,b:1,k:0,w:1,p:1},{d:1,b:1,k:1,w:0,p:1},{d:2,b:2,k:0,w:0,p:1},{d:0,b:0,k:2,w:2,p:0},{d:3,b:3,k:3,w:0,p:2}]; /* what older tapes (lo-fi, bossa, house, ambient, 8-bit) become */
 let draft=null; /* the tape being made, before it's saved */
 const clampInt=(v,lo,hi,d)=>{v=Math.round(+v);return Number.isFinite(v)?Math.max(lo,Math.min(hi,v)):d;};
 function cleanTape(t){if(!t||typeof t!=='object')return null;const n=String(t.n||'').replace(/[\u0000-\u001f<>]/g,'').trim().slice(0,24)||'Untitled mixtape';
-  let v=t.v,g=t.g,s=t.s;if(v==null&&t.b!=null){v=0;g=+t.t<35?0:+t.t<65?1:2;s=+t.o<30?3:1;} /* a tape made before vibes: lo-fi, with the nearest groove and sound */
-  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,TAPE_COLORS.length-1,2),v:clampInt(v,0,4,0),m:clampInt(t.m,0,2,0),g:clampInt(g,0,2,1),s:clampInt(s,0,3,1),w:clampInt(t.w,0,4,0),f:clampInt(t.f,879,1079,0)||randFreq()};}
+  let d=t.d,b=t.b,k=t.k,p=t.p,sb=t.s;
+  if(t.e!==5){ /* older tapes: bring them up to the layers version */
+    if(k==null){let v=t.v,g=t.g;if(v==null&&t.b!=null){v=0;g=+t.t<35?0:+t.t<65?1:2;} /* vibe, mood, groove...: the nearest parts, at the nearest speed */
+      const pr=LEGACY[clampInt(v,0,4,0)];d=pr.d;b=pr.b;k=pr.k;p=clampInt(g,0,2,1);}
+    else if(t.e!==4)d=[0,1,1,2][clampInt(d,0,3,1)]; /* the drums version: brushes become lo-fi */
+    const d4=clampInt(d,0,3,1),k4=clampInt(k,0,3,0);d=[0,2,3,2][d4];k=k4+1;sb=k4===3?3:d4===2?1:d4===0&&k4===2?2:0;} /* the steps version: beats and keys renumbered, keys can now be off */
+  return {id:typeof t.id==='string'&&/^[a-z0-9]{1,16}$/.test(t.id)?t.id:undefined,n,c:clampInt(t.c,0,SHELLS.length-1,0),d:clampInt(d,0,3,1),b:clampInt(b,0,3,0),k:clampInt(k,0,4,1),w:clampInt(t.w,0,4,0),p:clampInt(p,0,2,1),f:clampInt(t.f,879,1079,0)||randFreq(),s:clampInt(sb,0,3,0),r:clampInt(t.r,1,2147483647,0),e:5,i:t.i?1:0};} /* r: the tune's seed (0 on older tapes: their name is the seed, so they keep their tune) */
 function randFreq(){const taken=new Set(Object.values(FREQ_FIXED).map(f=>Math.round(f*10)));let f;do{f=879+2*Math.floor(Math.random()*101);}while(taken.has(f));return f;} /* a free spot on the dial, odd tenths like real FM */
 const FREQ_FIXED={late:88.3,window:91.7,crt:94.1,sunday:97.5,desert:102.9,purr:89.9,rain:90.5,waves:93.3,fire:99.1,brown:100.7};
 S.tapes=(Array.isArray(S.tapes)?S.tapes:[]).map(cleanTape).filter(t=>t&&t.id).slice(0,TAPE_MAX);
 /* an unsaved mixtape is kept quietly too, so a refresh or a closed tab doesn't lose it */
 function keepDraft(){if(BC)return;S.draft=draft?Object.assign({},draft):null;save();}
 function tapeOf(id){if(typeof id!=='string'||!id.startsWith('tape:'))return null;return id==='tape:draft'?draft:S.tapes.find(t=>'tape:'+t.id===id)||null;}
-function levelOf(id){if(GEN_LEVEL[id]!=null)return GEN_LEVEL[id];const tp=tapeOf(id);return tp?TAPE_LEVEL[tp.v]:.8;}
+function levelOf(id){if(GEN_LEVEL[id]!=null)return GEN_LEVEL[id];const tp=tapeOf(id);return tp?TAPE_LEVEL:.8;}
 function freqOf(id){if(FREQ[id])return FREQ[id];const tp=tapeOf(id);return tp?(tp.f/10).toFixed(1):'88.3';} /* every tape keeps its own spot on the dial, chosen when it's made */
-function encodeTape(t){const j=JSON.stringify([2,t.n,t.c,t.v,t.m,t.g,t.s,t.w,t.f]);return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
+function encodeTape(t){const j=JSON.stringify([t.i?7:6,t.n,t.c,t.d,t.b,t.k,t.w,t.p,t.f,t.s,t.r]);return btoa(unescape(encodeURIComponent(j))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');}
 function decodeTape(s){try{const a=JSON.parse(decodeURIComponent(escape(atob(String(s).replace(/-/g,'+').replace(/_/g,'/')))));if(!Array.isArray(a))return null;
-  if(a[0]===2)return cleanTape({n:a[1],c:a[2],v:a[3],m:a[4],g:a[5],s:a[6],w:a[7],f:a[8]});
+  if(a[0]===7||a[0]===6)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],r:a[10],e:5,i:a[0]===7?1:0}); /* 7: the same fields, with independent layers */
+  if(a[0]===5)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],s:a[9],e:5});
+  if(a[0]===4)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8],e:4});
+  if(a[0]===3)return cleanTape({n:a[1],c:a[2],d:a[3],b:a[4],k:a[5],w:a[6],p:a[7],f:a[8]});
+  if(a[0]===2)return cleanTape({n:a[1],c:a[2],v:a[3],m:a[4],g:a[5],s:a[6],w:a[7],f:a[8]}); /* links from the vibe/mood/groove version */
   if(a[0]===1)return cleanTape({n:a[1],c:a[2],b:a[3],m:a[4],d:a[5],w:a[6],t:a[7],u:a[8],o:a[9],f:a[10]}); /* links from before vibes still play */
   return null;}catch(e){return null;}}
 function save(){if(BC)return;try{localStorage.setItem(STORE,JSON.stringify(S));}catch(e){}} /* broadcast mode never changes your own saved settings */
@@ -95,13 +119,15 @@ function tzLabel(){if(!BC||!BC.tz)return '';if(BCQ.get('label'))return BCQ.get('
 const PALETTES={
   /* Pegs: a black pegboard with coloured plastic pegs, like the light-up toy from the 80s. Every digit gets its own colour,
      the desk edge is a row of rainbow pegs, and now and then a peg is in the wrong place, the way a kid would leave it. */
-  pegs:  {name:'Pegs',      primary:'#f1e7cf',secondary:'#e7c74e',accent:'#d94c45',bg:'#000000',seed:'#707070',off:'#101216',deep:'#26202e',mid:'#8774b8',hi:'#f8f0dc',fish:'#e8902f',peg:true,
-          rainbow:['#e2504a','#e8902f','#e7c74e','#5ed363','#58aaf5','#e064c0','#9a72e0'],digits:['#e2504a','#e7c74e','#5ed363','#58aaf5']}, /* old bulbs, not RGB strips: a touch softer than full saturation */
-  teal:  {name:'Teal VFD',  primary:'#68d4cb',secondary:'#3fb0aa',accent:'#ff8a3d',bg:'#081515',seed:'#238c89',off:'#0d1f1f',deep:'#123a3b',mid:'#238c89',hi:'#b5f1e7',fish:'#ff8a3d'},
-  amber: {name:'Amber',     primary:'#f2a52b',secondary:'#d98a2b',accent:'#ff4a3a',bg:'#17100c',seed:'#b96d20',off:'#22170f',deep:'#49301d',mid:'#b96d20',hi:'#ffd66c',fish:'#ffd66c'},
+  pegs:  {name:'Pegs',      primary:'#f4ebd8',secondary:'#f2d14d',accent:'#e85a4f',bg:'#050505',seed:'#707070',off:'#141518',deep:'#26202e',mid:'#a278d6',hi:'#f8f0dc',fish:'#ef8c32',peg:true,
+          rainbow:['#e85a4f','#ef8c32','#f2d14d','#55c975','#54a7e8','#e66ac4','#a278d6'],digits:['#e85a4f','#f2d14d','#55c975','#54a7e8']}, /* fun: the signature look */
+  teal:  {name:'Teal Stereo',primary:'#63ddd1',secondary:'#ff8a3d',accent:'#f05d4e',bg:'#061718',seed:'#238c89',off:'#102324',deep:'#174b4b',mid:'#286f6c',hi:'#c5fff5',fish:'#ff8a3d'}, /* cool: an 80s receiver, teal with warm orange details */
+  amber: {name:'Amber Radio',primary:'#f5b642',secondary:'#f3e1ba',accent:'#ef5548',bg:'#18100a',seed:'#b96d20',off:'#251811',deep:'#4a2c18',mid:'#b96e27',hi:'#ffe6a1',fish:'#f3e1ba'}, /* cozy: the clock radio on the dresser */
   crt:   {name:'Phosphor',  primary:'#f1e9c9',secondary:'#b7d39c',accent:'#d9785a',bg:'#0c120e',seed:'#527256',off:'#131c15',deep:'#26392a',mid:'#6f8d67',hi:'#fbf6e2',fish:'#e6a44b'},
-  moon:  {name:'Moonlight', primary:'#c7d3e3',secondary:'#94acd0',accent:'#e9c77b',bg:'#090c18',seed:'#354f78',off:'#10152a',deep:'#17203b',mid:'#3d5a88',hi:'#eef3fa',fish:'#e9c77b',floor:.5},
+  moon:  {name:'Moonlight', primary:'#afc8f4',secondary:'#a88dd8',accent:'#ebcb7d',bg:'#090b1c',seed:'#354f78',off:'#101429',deep:'#17213e',mid:'#354a82',hi:'#f0f4ff',fish:'#ebcb7d',floor:.5}, /* dreamy: icy blue with lavender and pale gold */
   ember: {name:'Ember',     primary:'#ed9272',secondary:'#c65b45',accent:'#f2c46b',bg:'#120d0c',seed:'#7b3029',off:'#1c1312',deep:'#3a1c1c',mid:'#7b3029',hi:'#f7b89a',fish:'#f2c46b',floor:.55}};
+const SHOWN_PALETTES=['pegs','teal','amber','moon']; /* the four looks on offer; Phosphor and Ember still work for anyone who chose them */
+const TRACK_PALETTE=['amber','teal','moon','pegs']; /* Lo-fi, House, Ambient, 8-bit */
 function pal(){const p=PALETTES[S.palette]||PALETTES.pegs;return {PEG:p.peg?p.rainbow.map(hexInt):null,DIG:p.peg?p.digits.map(hexInt):null,C:hexInt(p.primary),S2:hexInt(p.secondary),A:hexInt(p.accent),BG:hexInt(p.bg),pegs:null,OFF:p.off,DEEP:hexInt(p.deep),MID:hexInt(p.mid),HI:hexInt(p.hi),FISH:hexInt(p.fish),floor:p.floor||0};}
 const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'],MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function clock(d){let h=d.getHours();const ap=h>=12?'PM':'AM';if(!H24)h=h%12||12;return {s:(H24?String(h).padStart(2,'0'):String(h))+':'+String(d.getMinutes()).padStart(2,'0'),ap,date:DAYS[d.getDay()]+' '+MONTHS[d.getMonth()]+' '+d.getDate()};}
@@ -110,9 +136,8 @@ function nightDim(d){if(BC&&BCQ.get('dim')==='0')return 1;const h=d.getHours()+d
 /* ================= Sound =================
    Everything Loaf FM plays is made in the browser: its own music stations and the calm sounds. No live radio. */
 
-let sleepAt=0;function sleepLeft(){return sleepAt?Math.max(1,Math.ceil((sleepAt-Date.now())/60000)):0;}
 let actx=null,freq=null;const bands=new Float32Array(16);
-function playing(){return !!gen;}
+function playing(){return !!gen&&!!actx&&actx.state==='running';} /* a suspended context isn't playing, whatever's queued */
 /* ================= Calm sounds, made right here: nothing to stream, nothing to buffer ================= */
 const CALM=[{id:'gen:purr',name:'Purr',url:''},{id:'gen:rain',name:'Rain',url:''},{id:'gen:waves',name:'Ocean',url:''},{id:'gen:fire',name:'Fireplace',url:''},{id:'gen:brown',name:'Brown noise',url:''}];
 let gen=null;
@@ -180,7 +205,7 @@ const SOUNDS={
 const MUSIC=[{id:'gen:late',name:'Late Shift',url:''},{id:'gen:window',name:'Rainy Window',url:''},{id:'gen:crt',name:'CRT Dreams',url:''},{id:'gen:sunday',name:'Sunday Loaf',url:''},{id:'gen:desert',name:'Desert Night',url:''}];
 const mtof=m=>440*Math.pow(2,(m-69)/12);
 /* the keys under Loafie: the music tells the desk which note it plays and when, and that key lights up */
-const keyHits=[];function keyHit(a,t,m){if(a!==actx)return;keyHits.push(t,m);if(keyHits.length>240)keyHits.splice(0,keyHits.length-240);}
+const keyHits=[];function keyHit(a,t,m){if(a!==actx)return;keyHits.push(t,m);if(keyHits.length>300)keyHits.splice(0,150);} /* every melodic note; the keys don't light any more, but the deck's pattern display reads this */
 const choose=a=>a[Math.floor(Math.random()*a.length)];
 const CH={maj7:[0,4,7,11],m7:[0,3,7,10],dom7:[0,4,7,10],maj9:[0,4,7,11,14],m9:[0,3,7,10,14],dom9:[0,4,7,10,14],sus:[0,5,7,10],m11:[0,3,7,10,17],add9:[0,4,7,14]};
 /* progressions as [scale-degree root in semitones, chord type] */
@@ -252,7 +277,8 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
   const inRange=(m,lo,hi)=>{while(m>hi)m-=12;while(m<lo)m+=12;return m;};let motif=null;
   const phrase=(b0,root,sw)=>{const p=st.phrase;
     if(p==='motif'){ /* Late Shift: a little motif built on the chord's 9th and 7th, repeated and moved with the chords, played just behind the beat */
-      if(!motif||Math.random()<.15){motif=[];let i=choose([0,2,4]);const n=3+Math.floor(Math.random()*2);for(let k=0;k<n;k++){motif.push({i,tone:choose([14,11,7,4,14,9]),d:choose([.5,1,1.5])});i+=choose([2,2,3,4]);}}
+      if(motif&&Math.random()<.3){const m=motif[Math.floor(Math.random()*motif.length)];m.tone=choose([14,11,7,4,9,2].filter(x=>x!==m.tone));} /* one note changes */
+      if(!motif||Math.random()<.3){motif=[];let i=choose([0,2,4]);const n=3+Math.floor(Math.random()*2);for(let k=0;k<n;k++){motif.push({i,tone:choose([14,11,7,4,14,9]),d:choose([.5,1,1.5])});i+=choose([2,2,3,4]);}}
       for(const nt of motif)if(nt.i<16)ep(sw(nt.i)+.03,inRange(key+root+nt.tone+24,67,81),beat*nt.d,rnd(.4,.58));}
     else if(p==='sparse'){ /* Rainy Window: one or two long, suspended notes that don't quite resolve */
       const n=Math.random()<.6?1:2;let i=choose([0,4,8]);for(let k=0;k<n&&i<16;k++){lead(sw(i),inRange(key+root+choose([2,5,7,14,17]),62,76),beat*rnd(2.5,4),rnd(.55,.8));i+=8;}}
@@ -291,43 +317,25 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
     update(ns){const oldProg=st.prog;Object.assign(st,ns);bpm=(ns.bpm[0]+ns.bpm[1])/2;beat=60/bpm; /* tempo, busyness, tone, drums and mood change live while it plays */
       warm.frequency.setTargetAtTime(st.lp,a.currentTime,.08);warm2.frequency.setTargetAtTime(st.lp,a.currentTime,.08);if(hg)hg.gain.setTargetAtTime(.006*st.hiss,a.currentTime,.1);if(hfx&&st.hissF)hfx.frequency.setTargetAtTime(st.hissF,a.currentTime,.1);if(st.wobble)wowG.gain.setTargetAtTime(st.wobble,a.currentTime,.2);if(st.prog!==oldProg)prog=choose(PROGS[st.prog]);}};}
 for(const s of MUSIC)SOUNDS[s.id]=(a,dest)=>music(a,dest,STYLES[s.id]);
-/* ===== Mixtape bands =====
-   A mixtape is five choices: the band (vibe), the mood, the groove, the recording (sound) and the weather outside.
-   Under those, each band has its own instruments, rhythms and chord moves. The tape's name quietly picks the key,
-   the chord changes and a little hook that comes back every eight bars, so the same name is the same tune in any
-   band. The hook and the changes are fixed; the players improvise around them, so it's never a loop. */
-const VIBES=['Lo-fi','Bossa Nova','House','Ambient','8-bit'],MOODS=['Sunny','Moody','Late Night'],GROOVES=['Lazy','Pocket','Move'],RECS=['Studio','Cassette','Vinyl','Next Room'],WEATHERS=['None','Rain','Ocean','Fire','Purr'];
-const TAPE_LEVEL=[.35,.43,.33,.47,.37]; /* per band, matched by measured loudness to the stations (see the README) */
+/* ===== Mixtapes: a tiny four-track loop machine =====
+   You pick the parts: drums, bass, keys and the atmosphere outside, and how fast. Loaf FM does the rest: the tape's name
+   quietly picks the key, a mood, the chord changes and a little hook that comes back every eight bars; the bass follows
+   the chords, the keys play in the beat's feel (offbeat guitar chops over house, fingerpicking over lo-fi), the drums get small
+   fills, and every part is humanised. Vibes are only presets: one tap fills in all four tracks as a starting point. */
+const DRUMS=['Soft','Lo-fi','House'],BASSES=['Warm','Deep','Synth'],KEYS=['Rhodes','Guitar','Pad','8-bit'],OUTSIDE=['Rain','Ocean','Fire','Purr'],SPEEDS=['Slow','Easy','Fast']; /* each layer: 0 is off */
+const TAPE_LEVEL=.33; /* matched by measured loudness to the stations (see the README) */
+const TEMPO=[[60,70,82],[68,78,88],[72,82,92],[112,120,126]],SWING=[[.1,.08,.06],[.12,.1,.08],[.16,.13,.09],[.1,.07,.04]]; /* by drums (off, soft, lo-fi, house), then pace */
 Object.assign(CH,{maj:[0,4,7],min:[0,3,7],m7b5:[0,3,6,10],dim7:[0,3,6,9],dom7b9:[0,4,7,10,13],dom13:[0,4,10,14,21],six9:[0,4,7,9,14],m6:[0,3,7,9,14],maj7s11:[0,4,7,11,18],madd9:[0,3,7,14]});
 const SCALE={ion:[0,2,4,5,7,9,11],aeo:[0,2,3,5,7,8,10],dor:[0,2,3,5,7,9,10],lyd:[0,2,4,6,7,9,11]};
-/* chord changes: "root-in-semitones + chord" per bar (ambient: per two bars); each mood has a scale and a few progressions */
-const BANDS=[
-  {bpm:[72,82,90],swing:[.16,.13,.09],bpc:1,wet:.22,moods:[
-    ['ion',['2m9 7dom9 0maj9 9m7','0maj7 9m9 2m7 7sus','5maj9 4m7 2m9 0maj7','5maj9 7dom9 4m7 9m9']],
-    ['aeo',['0m9 8maj7 3maj7 10sus','0m9 5m7 8maj9 7dom7b9','0m11 0m11 8maj9 10add9','0m9 3maj7 8maj7 7m7']],
-    ['ion',['2m9 7dom7b9 0maj9 9dom7b9','4m7 3dim7 2m9 7dom13','0maj9 1dim7 2m9 7dom7b9','5maj9 5m6 0maj9 9dom7b9']]]},
-  {bpm:[110,124,138],swing:[.03,.02,0],bpc:1,wet:.2,moods:[
-    ['ion',['0maj7 0maj7 2dom9 2dom9 2m9 1dom7 0six9 0six9','0six9 9m7 2m9 7dom13','0maj9 0maj9 5maj7 5m6 4m7 9dom7b9 2m9 7dom13']],
-    ['aeo',['0m9 0m9 2m7b5 7dom7b9','0m6 5m9 10dom9 3maj7 8maj7 2m7b5 7dom7b9 0m9','0m7 8maj7 2m7b5 7dom7b9']],
-    ['ion',['4m7 9dom7b9 2m9 7dom7b9 0maj9 0maj9 1dim7 2m9','2m9 1dom9 0maj7s11 0maj7s11','5maj7 5m6 4m7 3dim7 2m9 7dom13 0maj9 0maj9']]]},
-  {bpm:[114,120,124],swing:[.12,.08,.05],bpc:1,wet:.2,moods:[
-    ['ion',['0maj9 0maj9 5maj9 5maj9','0maj9 9m9 5maj9 7sus','5maj9 5maj9 0maj9 0maj9']],
-    ['aeo',['0m9 0m9 5m9 5m9','0m11 0m11 8maj9 10six9','0m9 3maj9 5m9 8maj7']],
-    ['dor',['0m9 0m9 5dom9 5dom9','0m11 0m11 3maj9 5dom9','0m9 10add9 0m9 5dom9']]]},
-  {bpm:[52,60,68],swing:[0,0,0],bpc:2,wet:.7,moods:[
-    ['lyd',['0maj9 2add9','0add9 7add9 9m9 2add9','0maj7s11 0maj7s11 2add9 7add9']],
-    ['aeo',['0madd9 8maj7 3add9 10sus','0madd9 8add9','0m9 5m9 8maj7 7m7']],
-    ['dor',['0m11 5add9','0sus 0m11 3maj7s11 3maj7s11','0m9 10add9']]]},
-  {bpm:[92,116,136],swing:[.2,0,0],bpc:1,wet:.05,moods:[
-    ['ion',['0maj 7maj 9min 5maj','5maj 7maj 4min 9min','0maj 5maj 7maj 5maj','0maj 9min 5maj 7maj']],
-    ['aeo',['0min 8maj 10maj 0min','0min 10maj 8maj 7maj','0min 5min 10maj 3maj']],
-    ['dor',['0m7 5dom7','0min 3maj 5maj 0min','0m7 10maj 8maj 7min']]]}];
-/* the recording: what the band goes through on its way to you */
+/* the name picks one of three moods; each has a scale and a few progressions that suit every part ("root+chord" per bar) */
+const HARMONY=[
+  ['ion',['2m9 7dom9 0maj9 9m7','0maj7 9m9 2m7 7sus','5maj9 4m7 2m9 0maj7','5maj9 7dom9 4m7 9m9','0six9 9m7 2m9 7dom13']],
+  ['aeo',['0m9 8maj7 3maj7 10sus','0m9 5m7 8maj9 7dom7b9','0m11 0m11 8maj9 10add9','0m9 3maj7 8maj7 7m7']],
+  ['ion',['2m9 7dom7b9 0maj9 9dom7b9','4m7 3dim7 2m9 7dom13','0maj9 1dim7 2m9 7dom7b9','5maj9 5m6 0maj9 9dom7b9']]];
+/* the recording: lo-fi drums get a cassette; everything else is clean */
 const RECORDING=[
-  {dr:.8,hp:25,l1:18000,l2:18000,sh:0,hi:0,cr:0,wo:0,fl:0,rm:0,out:1},          /* Studio: clean and close */
-  {dr:2,hp:75,l1:6000,l2:8500,sh:3,hi:.016,cr:0,wo:11,fl:3.5,rm:0,out:1},       /* Cassette: warm, wobbly, hissy */
-  {dr:1.2,hp:40,l1:9500,l2:12000,sh:2,hi:.004,cr:1,wo:5,fl:0,rm:0,out:1},       /* Vinyl: crackle and a slow warp */
-  {dr:.8,hp:50,l1:380,l2:600,sh:5,hi:0,cr:0,wo:0,fl:0,rm:.45,out:1}];           /* Next Room: through the wall */
+  {dr:.8,hp:25,l1:18000,l2:18000,sh:0,hi:0,wo:0,fl:0},
+  {dr:2,hp:75,l1:6000,l2:8500,sh:3,hi:.016,wo:11,fl:3.5}];
 function seeded(str){let h=2166136261;for(const ch of String(str))h=Math.imul(h^ch.charCodeAt(0),16777619);
   return ()=>{h=h+0x6D2B79F5|0;let t=h;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return ((t^t>>>14)>>>0)/4294967296;};}
 const parseProg=s=>s.split(' ').map(x=>{const m=x.match(/^(\d+)(\w+)$/);return [+m[1],m[2]];});
@@ -350,37 +358,37 @@ function pulseWave(a,duty){a.__pw=a.__pw||{};if(a.__pw[duty])return a.__pw[duty]
   for(let i=1;i<n;i++)re[i]=2/(i*Math.PI)*Math.sin(i*Math.PI*duty);return a.__pw[duty]=a.createPeriodicWave(re,im);}
 let SATC=null;
 function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
-  const V=tp.v,M=tp.m,G=tp.g,Bd=BANDS[V],[scName,progStr]=Bd.moods[M],SC=SCALE[scName];
-  /* the name picks the key, the changes and the hook */
-  const RN=seeded('loaf:'+tp.n.toLowerCase().trim());const kpc=Math.floor(RN()*12),hook=makeHook(RN),pa=Math.floor(RN()*1e6),pb=Math.floor(RN()*1e6);
-  const progs=progStr.map(parseProg),progA=progs[pa%progs.length],progB=progs.length>1?progs[(pa%progs.length+1+pb%(progs.length-1))%progs.length]:progA;
-  const bpm=Bd.bpm[G]*(M===2?.9:1),beat=60/bpm,step=beat/4,barDur=16*step,swing=Bd.swing[G],bright=[1,.82,.55][M],low=M===2?-4:0; /* Late Night: slower, lower, darker */
+  const D=tp.d,BS=tp.b,KO=tp.k===0,K=tp.k-1,G=tp.p,IND=!!tp.i,chipKeys=K===3,chip=IND?tp.s===3:chipKeys,ambient=D===0&&(IND||K===2);
+  /* K: 0 Rhodes, 1 guitar, 2 pad, 3 8-bit. Independent tapes (i, everything made since the layers got separate): the starting
+     track alone sets the drums, groove and tempo (only the 8-bit start uses the chip kit), so 8-bit keys are just keys.
+     Older tapes keep their sound: there 8-bit keys put the drums through a chip kit and speed things up. */
+  /* the feel every part plays in: 0 free (no drums), 2 lo-fi (soft drums too), 3 house */
+  const feel=D===0?0:D===3?3:2;
+  /* the name picks the key, the mood, the changes and the hook */
+  const SEEDSTR=tp.r?'seed:'+tp.r:'loaf:'+tp.n.toLowerCase().trim(),RN=seeded(SEEDSTR); /* the tape's own seed; older tapes use their name */const kpc=Math.floor(RN()*12),hook=makeHook(RN),M=Math.floor(RN()*3),pa=Math.floor(RN()*1e6),pb=Math.floor(RN()*1e6);
+  const [scName,progStr]=HARMONY[M],SC=SCALE[scName],progs=progStr.map(parseProg),progA=progs[pa%progs.length],progB=progs.length>1?progs[(pa%progs.length+1+pb%(progs.length-1))%progs.length]:progA;
+  const bpm=TEMPO[D][G]*(chip&&D<3?1.22:1),beat=60/bpm,step=beat/4,barDur=16*step,swing=SWING[D][G]*(chip?.4:1),bpc=ambient&&G<2?2:1,bright=[1,.85,.72][M],low=0;
   const white=makeNoise(a,3,'white'),srcs=[];
-  /* signal chain: band -> (pump) -> drive -> recording filters -> out; room and echo are recorded with the band */
+  /* signal chain: parts -> (pump) -> drive -> recording filters -> out; room and echo are recorded with the parts */
   const bq=(type,f,q)=>{const b=a.createBiquadFilter();b.type=type;b.frequency.value=f;if(q!=null)b.Q.value=q;return b;};
   const inG=a.createGain(),pump=a.createGain(),drumG=a.createGain(),drive=a.createGain(),sat=a.createWaveShaper(),post=a.createGain();
   if(!SATC){SATC=new Float32Array(2048);for(let i=0;i<2048;i++){const x=i/1023.5-1;SATC[i]=Math.tanh(1.4*x)/Math.tanh(1.4);}}sat.curve=SATC;
   const hp=bq('highpass',25,.7),lp1=bq('lowpass',18000,.5),lp2=bq('lowpass',18000,.6),shelf=bq('lowshelf',160);
   const comp=a.createDynamicsCompressor();comp.threshold.value=-22;comp.knee.value=10;comp.ratio.value=3;comp.attack.value=.02;comp.release.value=.3;
   const recOut=a.createGain(),wowD=a.createDelay(.1);wowD.delayTime.value=.008;inG.connect(pump).connect(drive);drumG.connect(drive);drive.connect(sat).connect(post).connect(wowD).connect(hp).connect(lp1).connect(lp2).connect(shelf).connect(comp).connect(recOut).connect(dest);
-  const verb=makeVerb(a,V===3?5:2.6),wet=a.createGain(),send=a.createGain();send.connect(verb).connect(wet).connect(drive);
-  const dly=a.createDelay(2),dfb=a.createGain(),dlp=bq('lowpass',2600),dsend=a.createGain(),dwet=a.createGain();dly.delayTime.value=V===3?beat*1.5:step*3;dfb.gain.value=V===3?.45:.32;
+  const verb=makeVerb(a,ambient?5:2.6),wet=a.createGain(),send=a.createGain();send.connect(verb).connect(wet).connect(drive);wet.gain.value=ambient?.7:chip||(chipKeys&&!IND)?.06:.22;
+  const dly=a.createDelay(2),dfb=a.createGain(),dlp=bq('lowpass',2600),dsend=a.createGain(),dwet=a.createGain();dly.delayTime.value=ambient?beat*1.5:step*3;dfb.gain.value=ambient?.45:.32;
   dsend.connect(dly);dly.connect(dlp).connect(dfb).connect(dly);dlp.connect(dwet).connect(drive);dwet.gain.value=1;
-  const hs=a.createBufferSource();hs.buffer=white;hs.loop=true;const hbp=bq('bandpass',4800,.6),hiss=a.createGain();hiss.gain.value=0;hs.connect(hbp).connect(hiss).connect(recOut);hs.start();srcs.push(hs);
-  const crack=a.createGain();crack.gain.value=0;crack.connect(recOut);
-  /* wow and flutter: the whole recording passes through a short delay whose time drifts (cents -> seconds of sweep) */
-  const wowO=a.createOscillator(),wowG=a.createGain(),flO=a.createOscillator(),flG=a.createGain();wowO.frequency.value=.48;flO.frequency.value=6.3;wowG.gain.value=0;flG.gain.value=0;
+  const hs=a.createBufferSource();hs.buffer=white;hs.loop=true;const hbp=bq('bandpass',4800,.6),hiss=a.createGain();hs.connect(hbp).connect(hiss).connect(recOut);hs.start();srcs.push(hs);
+  const wowO=a.createOscillator(),wowG=a.createGain(),flO=a.createOscillator(),flG=a.createGain();wowO.frequency.value=.48;flO.frequency.value=6.3;
   wowO.connect(wowG).connect(wowD.delayTime);flO.connect(flG).connect(wowD.delayTime);wowO.start();flO.start();srcs.push(wowO,flO);
   const cents2s=(c,f)=>c/1731/(2*Math.PI*f);
+  { const r=RECORDING[D===2&&!chip?1:0];drive.gain.value=r.dr;post.gain.value=1/Math.pow(r.dr,.85);hp.frequency.value=r.hp;lp1.frequency.value=r.l1;lp2.frequency.value=r.l2;shelf.gain.value=r.sh;hiss.gain.value=r.hi;wowG.gain.value=cents2s(r.wo,.48);flG.gain.value=cents2s(r.fl,6.3);
+    recOut.gain.value=Math.pow(10,((D===0?2.5:0)+(BS===0?3.5:0)+(KO?3:0)-(ambient?3:0))/20);} /* fewer parts, a little make-up gain, so taking the drums out doesn't make it vanish */
   const trem=a.createOscillator();trem.frequency.value=2.3;const tremG=a.createGain();tremG.gain.value=.07;trem.connect(tremG);trem.start();srcs.push(trem);
   const epBus=a.createGain();epBus.gain.value=1;tremG.connect(epBus.gain);epBus.connect(inG); /* the electric piano's tremolo, once for all its notes */
-  let rec=-1;
-  function setRec(s,now){const r=RECORDING[s],t=now?a.currentTime:0,set=(p,v)=>{if(now)p.setTargetAtTime(v,t,.06);else p.value=v;};rec=s;
-    set(drive.gain,r.dr);set(post.gain,1/Math.pow(r.dr,.85));set(hp.frequency,r.hp);set(lp1.frequency,r.l1);set(lp2.frequency,r.l2);set(shelf.gain,r.sh);
-    set(hiss.gain,r.hi);set(crack.gain,r.cr?1:0);set(wowG.gain,cents2s(r.wo,.48));set(flG.gain,cents2s(r.fl,6.3));set(wet.gain,Bd.wet+r.rm+(M===2?.15:0));set(recOut.gain,r.out*REC_LEVEL[s]*(s===3&&V===1?1.6:1));} /* bossa lives in the mids, which the wall takes most of */
-  setRec(tp.s,false);
-  /* weather happens in your room, not on the tape */
-  const layers=[];const lay=(id,g)=>{const lg=a.createGain();lg.gain.value=g*.63/TAPE_LEVEL[V]; /* as loud as on the stations */lg.connect(dest);const l=SOUNDS[id](a,lg);srcs.push(...l.src);layers.push(l);};
+  /* atmosphere happens in your room, not on the tape */
+  const layers=[];const lay=(id,g)=>{const lg=a.createGain();lg.gain.value=g*.63/TAPE_LEVEL; /* as loud as on the stations */lg.connect(dest);const l=SOUNDS[id](a,lg);srcs.push(...l.src);layers.push(l);};
   if(tp.w===1)lay('gen:rain',.5);if(tp.w===2)lay('gen:waves',.45);if(tp.w===3)lay('gen:fire',.35);if(tp.w===4)lay('gen:purr',.2);
   /* helpers */
   const now0=()=>a.currentTime;const loose=(t,lo,hi)=>Math.max(now0(),t+rnd(lo,hi));
@@ -397,23 +405,18 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
   const pad=(t,ms,dur,lvl,att,wave)=>{const g=a.createGain(),f=bq('lowpass',400*bright,.4);att=att||Math.min(2.5,dur*.4);
     f.frequency.setValueAtTime(380*bright,t);f.frequency.linearRampToValueAtTime(1100*bright,t+dur*.5);f.frequency.linearRampToValueAtTime(600*bright,t+dur+att);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.022*lvl,t+att);g.gain.setValueAtTime(.022*lvl,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+att);f.connect(g);out(g,0,.9);
-    for(const m of ms)for(const d of [-7,7]){const o=osc(wave||'sawtooth',mtof(m),t);o.detune.setValueAtTime(d,t);o.connect(f);o.start(t);o.stop(t+dur+att+.1);}};
+    for(const m of ms){keyHit(a,t,m);for(const d of [-7,7]){const o=osc(wave||'sawtooth',mtof(m),t);o.detune.setValueAtTime(d,t);o.connect(f);o.start(t);o.stop(t+dur+att+.1);}}};
   const bassLo=(t,m,dur,lvl)=>{keyHit(a,t,m);const o=osc('sine',mtof(m),t),o2=osc('triangle',mtof(m),t),g=a.createGain(),g2=a.createGain();g2.gain.value=.25;
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16*lvl,t+.02);g.gain.setTargetAtTime(.09*lvl,t+.05,.4);g.gain.setTargetAtTime(0,t+dur,.12);o.connect(g);o2.connect(g2).connect(g);out(g,0,0);o.start(t);o2.start(t);o.stop(t+dur+1);o2.stop(t+dur+1);};
   const sub=(t,m,dur,lvl)=>{keyHit(a,t,m);const o=osc('sine',mtof(m),t),o2=osc('triangle',mtof(m),t),g=a.createGain(),g2=a.createGain();g2.gain.value=.18;
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.2*lvl,t+.008);g.gain.setTargetAtTime(.15*lvl,t+.02,.15);g.gain.setTargetAtTime(0,t+dur,.03);o.connect(g);o2.connect(g2).connect(g);out(g,0,0);o.start(t);o2.start(t);o.stop(t+dur+.4);o2.stop(t+dur+.4);};
+  const sbass=(t,m,dur,lvl)=>{keyHit(a,t,m);const f=bq('lowpass',900,4),g=a.createGain(); /* a little analog synth bass: saw and square through a plucky filter */
+    f.frequency.setValueAtTime(1400*bright,t);f.frequency.exponentialRampToValueAtTime(260,t+Math.min(.25,dur));g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.11*lvl,t+.005);g.gain.setTargetAtTime(.07*lvl,t+.02,.12);g.gain.setTargetAtTime(0,t+dur,.03);f.connect(g);out(g,0,.05);
+    for(const [ty,dt] of [['sawtooth',-6],['square',6]]){const o=osc(ty,mtof(m),t);o.detune.setValueAtTime(dt,t);o.connect(f);o.start(t);o.stop(t+dur+.3);}};
   const gtrBus=a.createGain(),gtrF=bq('lowpass',3600*bright,.5),gtrB=bq('peaking',220,1);gtrB.gain.value=3;gtrBus.connect(gtrB).connect(gtrF);out(gtrF,-.18,.35);
   const thumbBus=a.createGain(),thumbF=bq('lowpass',1100,.5);thumbBus.connect(thumbF);out(thumbF,0,.05);
   const string=(t,m,v,dur,kind)=>{keyHit(a,t,m);const k=ksBuf(a,m,kind),s=a.createBufferSource();s.buffer=k.b;s.playbackRate.value=k.rate;const g=a.createGain();
     g.gain.setValueAtTime(v,t);g.gain.setTargetAtTime(0,t+dur,kind==='thumb'?.06:.04);s.connect(g).connect(kind==='thumb'?thumbBus:gtrBus);s.start(t);s.stop(t+Math.min(dur+.5,k.b.duration));};
-  const flute=(t,m,dur,v)=>{keyHit(a,t,m);const f=mtof(m),o=osc('sine',f,t),o2=osc('sine',2*f,t),o3=osc('triangle',f,t),g=a.createGain(),g2=a.createGain(),g3=a.createGain(),lpf=bq('lowpass',3400*bright,.5);g2.gain.value=.12;g3.gain.value=.18;
-    const vib=a.createOscillator();vib.frequency.value=rnd(4.8,5.6);const vg=a.createGain();vg.gain.setValueAtTime(0,t);vg.gain.linearRampToValueAtTime(dur>.4?13:3,t+Math.min(.45,dur*.7));vib.connect(vg);vg.connect(o.detune);vg.connect(o2.detune);vg.connect(o3.detune);
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.06*v,t+.06);g.gain.linearRampToValueAtTime(.048*v,t+.2);g.gain.setValueAtTime(.048*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.14);
-    o.connect(g);o2.connect(g2).connect(g);o3.connect(g3).connect(g);g.connect(lpf);out(lpf,.12,.55,.12);
-    noise(t,'bandpass',f*2.2,1.4,.02,.12,.012*v,.12,.3);const e=t+dur+.3;[o,o2,o3,vib].forEach(x=>{x.start(t);x.stop(e);});};
-  const stab=(t,ns,dur,v)=>{ns.forEach(m=>keyHit(a,t,m));const f=bq('lowpass',1200*Math.max(bright,.7),.7),g=a.createGain(); /* a soft organ chord: sines and a quiet second harmonic, no EDM sweep */
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*v,t+.006);g.gain.setTargetAtTime(.025*v,t+.03,.15);g.gain.setTargetAtTime(0,t+dur,.07);f.connect(g);out(g,.08,.45,.25);
-    for(const m of ns)for(const [mul,k] of [[1,1],[2,.35],[.5,.25]]){const o=osc('sine',mtof(m)*mul,t),kg=a.createGain();kg.gain.value=k;o.detune.setValueAtTime(rnd(-4,4),t);o.connect(kg).connect(f);o.start(t);o.stop(t+dur+.6);}};
   const mallet=(t,m,v,len,rv,dl)=>{keyHit(a,t,m);const f=mtof(m),c=osc('sine',f,t),md=osc('sine',f*2,t),mg=a.createGain(),g=a.createGain();len=len||1.4;
     mg.gain.setValueAtTime(f*1.3*v*bright,t);mg.gain.exponentialRampToValueAtTime(f*.05,t+.35);md.connect(mg).connect(c.frequency);
     g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05*v,t+.005);g.gain.exponentialRampToValueAtTime(.0004,t+len);c.connect(g);out(g,rnd(-.3,.3),rv!=null?rv:.5,dl!=null?dl:.35);c.start(t);md.start(t);c.stop(t+len+.1);md.stop(t+len+.1);};
@@ -426,24 +429,23 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
     if(vibr&&dur>.25){const lf=a.createOscillator(),lg=a.createGain();lf.frequency.value=6;lg.gain.setValueAtTime(0,t);lg.gain.setValueAtTime(0,t+.15);lg.gain.linearRampToValueAtTime(18,t+.3);lf.connect(lg).connect(o.detune);lf.start(t);lf.stop(t+dur+.05);}
     o.connect(g);out(g,pan||0,.05);o.start(t);o.stop(t+dur+.05);};
   const tri=(t,m,dur,v)=>{keyHit(a,t,m);const o=osc('triangle',mtof(m),t),g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.16*v,t+.003);g.gain.setValueAtTime(.16*v,t+dur);g.gain.linearRampToValueAtTime(0,t+dur+.01);o.connect(g);out(g,0,0);o.start(t);o.stop(t+dur+.03);};
-  /* drums (to the drum bus, which the house pump leaves alone) */
-  const kick=(t,v)=>{t=loose(t,-.006,.008);v*=rnd(.88,1.04);const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(42,t+.13);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.26*v,t+.006);g.gain.exponentialRampToValueAtTime(.001,t+.38);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.45);};
-  const hkick=(t,v)=>{const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(48,t+.09);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.34*v,t+.003);g.gain.exponentialRampToValueAtTime(.12*v,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+.42);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.45);
-    if(pumpDepth){pump.gain.setValueAtTime(1,t);pump.gain.linearRampToValueAtTime(1-pumpDepth,t+.012);pump.gain.linearRampToValueAtTime(1,t+beat*.8);}};
-  const snare=(t,v)=>{t=loose(t,.006,.022);v*=rnd(.82,1.04);noise(t,'bandpass',1400,.8,.005,.16,.05*v,.05,.25,drumG);const o=a.createOscillator(),g=a.createGain();o.frequency.value=190;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.04*v,t+.003);g.gain.exponentialRampToValueAtTime(.001,t+.09);o.connect(g);out(g,.05,.2,0,drumG);o.start(t);o.stop(t+.12);};
-  const hat=(t,v,open)=>{if(M===2&&!open&&Math.random()<.35)return;noise(loose(t,-.008,.008),'highpass',open?7000:7600,.7,.003,open?.2:.035,(open?.02:.016)*v*rnd(.7,1.1),.22,open?.15:0,drumG);};
-  const shaker=(t,v)=>noise(loose(t,-.006,.006),'bandpass',5600,1.1,.012,.05,.012*v*rnd(.7,1.1),-.25,.1,drumG);
-  const rim=(t,v)=>{t=loose(t,-.004,.006);noise(t,'bandpass',2100,3,.001,.03,.05*v,.18,.15,drumG);const o=a.createOscillator(),g=a.createGain();o.frequency.value=440;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.03*v,t+.001);g.gain.exponentialRampToValueAtTime(.001,t+.045);o.connect(g);out(g,.18,.1,0,drumG);o.start(t);o.stop(t+.06);};
-  const clap=(t,v)=>{for(let i=0;i<3;i++)noise(t+i*.011,'bandpass',1150,1,.002,i<2?.012:.16,.045*v,-.05,.35,drumG);};
-  const brush=(t,v,long)=>noise(loose(t,-.01,.012),'bandpass',2800,.9,long?.07:.025,long?.32:.12,.026*v*rnd(.75,1.1),-.15,.3,drumG);
-  const ckick=(t,v)=>{const o=a.createOscillator(),g=a.createGain();o.type='triangle';o.frequency.setValueAtTime(190,t);o.frequency.exponentialRampToValueAtTime(40,t+.07);g.gain.setValueAtTime(.3*v,t);g.gain.linearRampToValueAtTime(0,t+.11);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.12);};
+  /* drums (to the drum bus, which the house pump leaves alone); with 8-bit keys the same patterns play on chip drums */
   const crunch=(()=>{const n=Math.round(a.sampleRate*.5),b=a.createBuffer(1,n,a.sampleRate),d=b.getChannelData(0);let h=0;for(let i=0;i<n;i++){if(i%6===0)h=Math.random()<.5?-1:1;d[i]=h;}return b;})(); /* stepped noise, like an old sound chip */
   const cnoise=(t,fq,dec,lvl)=>{const s=a.createBufferSource();s.buffer=crunch;const f=bq('highpass',fq,.5),g=a.createGain();g.gain.setValueAtTime(lvl,t);g.gain.exponentialRampToValueAtTime(.0004,t+dec);s.connect(f).connect(g);out(g,0,.03,0,drumG);s.start(t,Math.random()*.4,dec+.02);};
-  const csnare=(t,v)=>cnoise(t,1200,.11,.05*v);
-  const chat=(t,v)=>cnoise(t,7000,.03,.02*v);
+  const ckick=(t,v)=>{const o=a.createOscillator(),g=a.createGain();o.type='triangle';o.frequency.setValueAtTime(190,t);o.frequency.exponentialRampToValueAtTime(40,t+.07);g.gain.setValueAtTime(.3*v,t);g.gain.linearRampToValueAtTime(0,t+.11);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.12);};
+  const hits=[],logHit=(ch,t)=>{hits.push(ch,t);if(hits.length>600)hits.splice(0,300);}; /* what plays when: the deck's pattern display reads this */
+  const kick=(t,v)=>{logHit('bd',t);if(chip)return ckick(t,v);t=loose(t,-.006,.008);v*=rnd(.88,1.04);const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(110,t);o.frequency.exponentialRampToValueAtTime(42,t+.13);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.26*v,t+.006);g.gain.exponentialRampToValueAtTime(.001,t+.38);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.45);};
+  const hkick=(t,v)=>{logHit('bd',t);if(pumpDepth){pump.gain.setValueAtTime(1,t);pump.gain.linearRampToValueAtTime(1-pumpDepth,t+.012);pump.gain.linearRampToValueAtTime(1,t+beat*.8);}if(chip)return ckick(t,v);
+    const o=a.createOscillator(),g=a.createGain();o.frequency.setValueAtTime(150,t);o.frequency.exponentialRampToValueAtTime(48,t+.09);g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.34*v,t+.003);g.gain.exponentialRampToValueAtTime(.12*v,t+.12);g.gain.exponentialRampToValueAtTime(.001,t+.42);o.connect(g);out(g,0,0,0,drumG);o.start(t);o.stop(t+.45);};
+  const snare=(t,v)=>{logHit('sd',t);if(chip)return cnoise(t,1200,.11,.05*v);t=loose(t,.006,.022);v*=rnd(.82,1.04);noise(t,'bandpass',1400,.8,.005,.16,.05*v,.05,.25,drumG);const o=a.createOscillator(),g=a.createGain();o.frequency.value=190;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.04*v,t+.003);g.gain.exponentialRampToValueAtTime(.001,t+.09);o.connect(g);out(g,.05,.2,0,drumG);o.start(t);o.stop(t+.12);};
+  const hat=(t,v,open)=>{logHit('hh',t);if(chip)return cnoise(t,7000,open?.09:.03,.02*v);noise(loose(t,-.008,.008),'highpass',open?7000:7600,.7,.003,open?.2:.035,(open?.02:.016)*v*rnd(.7,1.1),.22,open?.15:0,drumG);};
+  const shaker=(t,v)=>{logHit('hh',t);if(chip)return cnoise(t,6000,.025,.012*v);noise(loose(t,-.006,.006),'bandpass',5600,1.1,.012,.05,.012*v*rnd(.7,1.1),-.25,.1,drumG);};
+  const rim=(t,v)=>{logHit('sd',t);if(chip)return cnoise(t,2500,.02,.035*v);t=loose(t,-.004,.006);noise(t,'bandpass',2100,3,.001,.03,.05*v,.18,.15,drumG);const o=a.createOscillator(),g=a.createGain();o.frequency.value=440;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.03*v,t+.001);g.gain.exponentialRampToValueAtTime(.001,t+.045);o.connect(g);out(g,.18,.1,0,drumG);o.start(t);o.stop(t+.06);};
+  const clap=(t,v)=>{logHit('sd',t);if(chip)return cnoise(t,1500,.09,.045*v);for(let i=0;i<3;i++)noise(t+i*.011,'bandpass',1150,1,.002,i<2?.012:.16,.045*v,-.05,.35,drumG);};
+  const brush=(t,v,long)=>{logHit('hh',t);if(chip)return cnoise(t,3000,long?.12:.04,.02*v);noise(loose(t,-.01,.012),'bandpass',2800,.9,long?.07:.025,long?.32:.12,.026*v*rnd(.75,1.1),-.15,.3,drumG);};
   /* ---- harmony and melody ---- */
   const tonicNear=c=>kpc+12*Math.round((c-kpc)/12);
-  const chordAt=bi=>{const p=((bi%32)+32)%32,pr=p>=16?progB:progA;return pr[Math.floor((p%16)/Bd.bpc)%pr.length];};
+  const chordAt=bi=>{const p=((bi%32)+32)%32,pr=p>=16?progB:progA;return pr[Math.floor((p%16)/bpc)%pr.length];};
   const pcsOf=ch=>CH[ch[1]].map(i=>(kpc+ch[0]+i)%12);
   const prevV={};
   const tight=ns=>ns.some((n,i)=>i&&n-ns[i-1]<2); /* a minor second inside a voicing sounds like a wrong note */
@@ -454,99 +456,117 @@ function band(a,dest,tp0){const tp=cleanTape(tp0||{})||cleanTape({});
         if(a2-av>4)c=[ns[ns.length-1]-12,...ns.slice(0,-1)];else if(av-a2>4)c=[...ns.slice(1),ns[0]+12];
         if(!c)break;c.sort((x,y)=>x-y);if(tight(c)||c[0]<lo-2||c[c.length-1]>hi+4)break;ns=c;}}
     prevV[id]=ns;return ns;};
-  const rootOf=(ch,lo,hi)=>{let n=kpc+ch[0];while(n<lo)n+=12;while(n>hi)n-=12;return n;}; /* basses keep their register in every mood */
+  const rootOf=(ch,lo,hi)=>{let n=kpc+ch[0];while(n<lo)n+=12;while(n>hi)n-=12;return n;};
   const degNote=(d,center)=>{const T=tonicNear(center+low),o=Math.floor(d/7);return T+SC[((d%7)+7)%7]+12*o;};
   const fit=(m,ch,strong)=>{const pcs=pcsOf(ch),pc=((m%12)+12)%12;if(pcs.includes(pc))return m;
     const clash=pcs.some(c=>(pc-c+12)%12===1||(c-pc+12)%12===1);if(!strong&&!clash&&SC.map(s=>(s+kpc)%12).includes(pc))return m;
     for(const dd of [-1,1,-2,2,-3,3])if(pcs.includes((((m+dd)%12)+12)%12))return m+dd;return m;};
   const st=(b0,i)=>b0+i*step+(i%2?swing*beat/2:0);
-  /* the hook, played by whoever leads this band, and little phrases made from it in between */
-  const LEAD=[{c:74,play:(t,m,d,v)=>ep(t+.025,m,d,v*.62,.15,.6,.08)},{c:79,play:(t,m,d,v)=>flute(t,m,d,v)},{c:76,play:(t,m,d,v)=>mallet(t,m,v,Math.max(.8,d*1.5))},{c:76,play:(t,m,d,v)=>glass(t,m,v)},{c:76,play:(t,m,d,v)=>{pulse(t,m,d*.92,v,.25,true,.1);pulse(t+3*step,m,d*.8,v*.32,.25,false,-.3);}}][V];
+  /* the hook, played by the keys, and little phrases made from it in between */
+  const LEAD=KO?null:[{c:74,play:(t,m,d,v)=>ep(t+.025,m,d,v*.62,.15,.6,.08)},{c:72,play:(t,m,d,v)=>string(t,m,.42*v,Math.max(d,step*2),'nyl')},{c:76,play:(t,m,d,v)=>glass(t,m,v)},{c:76,play:(t,m,d,v)=>{pulse(t,m,d*.92,v,.25,true,.1);pulse(t+3*step,m,d*.8,v*.32,.25,false,-.3);}}][K];
   const playNotes=(b0,bi,notes,vel)=>{for(const h of notes){const off=Math.floor(h.p/16),pp=h.p%16;let t=st(b0+off*barDur,pp);
-      if(V===1&&pp%4===0&&pp>0&&Math.random()<.3)t-=step; /* bossa: push some notes a sixteenth early */
-      const ch=chordAt(bi+off),m=fit(degNote(h.d,LEAD.c),ch,pp%4===0);LEAD.play(t,m,Math.max(step,h.du*step*(V===4?.9:1)),vel*rnd(.88,1.05));
-      if((V===0||V===1)&&h.du>=4&&Math.random()<.2)LEAD.play(t-step*.5,m-1,step*.4,vel*.5);}}; /* now and then a grace note from below */
-  const riff=(b0,bi)=>{const k=1+Math.floor(Math.random()*Math.min(3,hook.length-1)),s0=Math.floor(Math.random()*(hook.length-k)),tr=choose([-2,-1,0,1,2,3]),sh=choose([0,0,2,-2,4]);
+      const ch=chordAt(bi+off),m=fit(degNote(h.d,LEAD.c),ch,pp%4===0);LEAD.play(t,m,Math.max(step,h.du*step*(chip?.9:1)),vel*rnd(.88,1.05));
+      if(K===0&&h.du>=4&&Math.random()<.2)LEAD.play(t-step*.5,m-1,step*.4,vel*.5);}}; /* now and then a grace note from below */
+  const riff=(b0,bi,hook)=>{const k=1+Math.floor(Math.random()*Math.min(3,hook.length-1)),s0=Math.floor(Math.random()*(hook.length-k)),tr=choose([-2,-1,0,1,2,3]),sh=choose([0,0,2,-2,4]);
     const ns=hook.slice(s0,s0+k).map(h=>({p:((h.p%16)-(hook[s0].p%16)+choose([0,4,8])+sh+16)%16,d:h.d+tr,du:Math.min(h.du,4)})).filter(h=>h.p<15).sort((x,y)=>x.p-y.p);
     playNotes(b0,bi,ns,.8);};
-  const improv=[[.25,.4,.6],[.2,.35,.5],[.12,.2,.3],[.06,.1,.15],[.3,.5,.65]][V][G];
-  let bar=0,t=a.currentTime+.25,pumpDepth=V===2?[.12,.18,.25][G]:0;
-  function barSlot(b0){const bi=bar,p32=bi%32,ch=chordAt(bi),nx=chordAt(bi+1),bd=V!==3&&bi>=24&&p32>=24&&p32<28,hookBar=bi%8===2,full=barDur;
-    const hookOn=hookBar&&!(V===3&&bi%16!==2);
-    if(V===0){ /* LO-FI: electric piano, soft boom-bap, round bass */
-      const ns=voice('ep',ch,53,72),v=rnd(.5,.72);ns.forEach((m,i)=>ep(b0+i*rnd(.012,.03),m,full*rnd(.6,.9),v*(i?.85:1)));
-      if(G===1&&Math.random()<.45)ns.slice(-3).forEach((m,i)=>ep(st(b0,10)+i*.02,m,beat*1.2,v*.55));
-      if(G===2)for(const i of [6,10,14])if(Math.random()<.55)ns.slice(-3).forEach((m,j)=>ep(st(b0,i)+j*.015,m,beat*.6,v*.5));
-      if(M===2||G===0||bd)pad(b0,ns,full,.55);
-      if(!bd){const r=rootOf(ch,36,47);bassLo(st(b0,0),r,beat*2.6,1);if(G>=1&&Math.random()<.75)bassLo(st(b0,10),r+choose([0,7,12]),beat*1.3,.85);if(G===2){if(Math.random()<.5)bassLo(st(b0,7),r+choose([0,7]),beat*.5,.7);bassLo(st(b0,14),rootOf(nx,36,47)+choose([-1,2,0]),beat*.5,.75);}
+  const improv=[.2,.35,.5][G]*(ambient?.35:1);let hookB=null,hookN=0;
+  const tStart=a.currentTime+.25;let bar=0,t=tStart,pumpDepth=D===3&&!chip?[.12,.18,.25][G]:0;
+  function barSlot(b0){const bi=bar,p32=bi%32,ch=chordAt(bi),nx=chordAt(bi+1),bd=D>0&&bi>=24&&p32>=24&&p32<28,full=barDur;
+    const fill=D>0&&!bd&&(p32===15||p32===31||p32===23)&&Math.random()<.8; /* a little fill going into the next section */
+    /* ---- DRUMS ---- */
+    if(D>0&&!bd){
+      if(D===1){ /* soft: a gentle kick, a rim click on 2 and 4, brushes and a shaker */
+        kick(st(b0,0),.6);if(G>=1&&Math.random()<.7)kick(st(b0,10),.42);rim(st(b0,4),.5);rim(st(b0,12),.55);
+        for(let i=0;i<16;i+=(G===2?2:4))brush(st(b0,i),i%8===4?.7:.45,i%8===4);if(G>=1)for(let i=2;i<16;i+=(G===2?2:4))shaker(st(b0,i),.55);
+        if(fill)for(const i of [13,14,15])rim(st(b0,i),.35+.1*(i-13));}
+      else if(D===2){ /* lo-fi: lazy boom-bap with a cassette on it */
         kick(st(b0,0),.85);if(G===0){if(Math.random()<.6)kick(st(b0,10),.5);}else{kick(st(b0,10),.6);if(G===2||Math.random()<.3)kick(st(b0,7),.45);}
-        snare(st(b0,4),G===0?.55:.8);snare(st(b0,12),G===0?.6:.85);if(G===2&&Math.random()<.35)snare(st(b0,choose([7,15])),.2);
-        const hs=G===0?4:G===1?2:1;for(let i=0;i<16;i+=hs)hat(st(b0,i),(i%4===0?1:.6)*(G===0?.5:.8));}
-      else for(let i=0;i<16;i+=4)hat(st(b0,i),.35);}
-    else if(V===1){ /* BOSSA NOVA: nylon guitar (thumb on the bass, fingers on the chord), shaker, rim click, flute */
-      const pat=[[0,6,10,13],[0,3,6,8,11,13],[0,2,5,7,9,12,14]][G],cl=[0,3,6,10,13];
-      for(const i of pat){const c=i>=13&&nx[0]+nx[1]!==ch[0]+ch[1]?nx:ch,ns=voice(i>=13?'gx':'g',c,52,69,true);const tt=st(b0,i),acc=cl.includes(i)?1:.78;
-        ns.forEach((m,j)=>string(tt+j*rnd(.008,.014),m,(.22+.08*Math.random())*acc*(j?.9:1),step*(i===0?3.2:1.8),'nyl'));if(i>=13)prevV.g=prevV.gx;}
-      const r=rootOf(ch,38,50),f5=r-5<36?r+7:r-5,bp=[[[0,r,6],[8,f5,6]],[[0,r,3.5],[4,f5,3.5],[8,r,3.5],[12,f5,3.5]],[[0,r,2.6],[3,r,.9],[4,f5,3.5],[8,r,2.6],[11,r,.9],[12,f5,3.5]]][G];
-      for(const [i,m,d] of bp){string(st(b0,i),m,i%4?.35:.5,d*step,'thumb');}
-      if(!bd){if(M===2)for(let i=0;i<16;i+=4)brush(st(b0,i),G===0?.5:.8,i%8===4);else for(let i=0;i<16;i+=(G===0?2:1))shaker(st(b0,i),(i%2?.6:1)*(G===0?.6:.9)*(i%4===2?1.2:1));
-        for(const i of cl)rim(st(b0,i),G===0?.45:.7);for(const i of (G===0?[0,8]:[0,3,4,8,11,12]))kick(st(b0,i),i%4?.18:.3);}}
-    else if(V===2){ /* HOUSE: four on the floor, warm chords with a gentle pump, round sub bass */
-      const ns=voice('st',ch,55,74);
-      if(M===0||G===0){ns.forEach((m,i)=>ep(b0+i*.012,m,full*(G===0?.95:.45),rnd(.5,.62),null,.5,.1));if(G>=1)ns.slice(-3).forEach((m,i)=>ep(st(b0,10)+i*.01,m,beat*.8,.45,null,.4,.2));}
-      else for(const i of (G===1?[3,10]:[3,7,10,14]))stab(st(b0,i),ns,step*(G===1?2.5:1.6),i===3?1:.85);
-      if(G===0||M===2||bd)pad(b0,voice('pd',ch,48,67),full,bd?1.1:.6);
-      if(!bd){for(const i of [0,4,8,12])hkick(st(b0,i),G===0?.85:1);if(G===0){rim(st(b0,4),.55);rim(st(b0,12),.6);}else{clap(st(b0,4),[.4,.55,.65][G]);clap(st(b0,12),[.45,.6,.7][G]);}
-        for(const i of [2,6,10,14])hat(st(b0,i),[.25,.35,.4][G],true);if(G===1)for(let i=0;i<16;i++)shaker(st(b0,i),i%2?.5:.8);if(G===2)for(let i=0;i<16;i++)if(i%4!==2)hat(st(b0,i),i%2?.35:.55);
-        const r=rootOf(ch,33,45),bp=[[[2,0,5],[10,0,5]],[[2,0,2.2],[6,12,1.5],[10,0,2.2],[13,0,1.5]],[[2,0,1],[3,12,.9],[6,0,1.5],[10,0,1],[11,12,.9],[14,choose([7,10]),1.5]]][G];for(const [i,o,d] of bp)sub(st(b0,i),r+o,d*step,1);}
-      else for(const i of [2,6,10,14])hat(st(b0,i),.35,true);}
-    else if(V===3){ /* AMBIENT: long pads, a low drone, a few glassy notes, lots of room */
-      if(bi%2===0){pad(b0,voice('pd',ch,48,67),full*2,1,3.5,M===0?'triangle':'sawtooth');drone(b0,rootOf(ch,31,43),full*2,1);}
-      const ns=voice('gl',ch,67+low,84+low),n=[1,2,1][G];
-      if(G<2||bi%4!==0){for(let k=0;k<Math.max(n,1);k++)if(Math.random()<.6)glass(st(b0,choose([0,4,8,12])+k*2),choose(ns),rnd(.45,.7));}
-      else{const seq=Math.random()<.5?ns:ns.slice().reverse(),off=choose([0,4,8]);seq.concat([seq[0]+12]).forEach((m,i)=>{if(Math.random()<.85)glass(st(b0,(off+i*2)%16),m,rnd(.3,.5));});}
-      if(Math.random()<.12)mallet(st(b0,choose([2,6,10])),choose(ns)+12,.35,3,1.2,.4);}
-    else{ /* 8-BIT: pulse lead, chord arpeggios, triangle bass, noise drums */
-      const tr=voice('ar',ch,60,76),seq=tr.concat([tr[0]+12]);const ar=G===0?2:1;
-      for(let i=0;i<16;i+=ar){const k=G===2?[0,1,2,3,2,1][i%6]:i/ar;pulse(st(b0,i),seq[k%seq.length],step*ar*.85,G===0?.4:.32,.125,false,-.25);}
-      const r=rootOf(ch,36,48);if(!bd||G>0){if(G===0){tri(st(b0,0),r,step*5.5,1);tri(st(b0,8),r+7,step*3.5,.9);tri(st(b0,12),r+12,step*3.5,.8);}
-        else for(let i=0;i<16;i+=2)tri(st(b0,i),r+((i/2)%2?12:0)+(G===2&&i===14?choose([-1,2]):0),step*1.6,.9);if(G===2&&Math.random()<.6)tri(st(b0,15),rootOf(nx,36,48)-1,step*.8,.7);}
-      if(!bd){for(const i of (G===0?[0,8]:G===1?[0,8,10]:[0,6,8,10]))ckick(st(b0,i),1);for(const i of (G===0?[12]:[4,12]))csnare(st(b0,i),1);
-        for(let i=0;i<16;i+=(G===0?4:G===1?2:1))chat(st(b0,i),i%4===0?1:.6);}
-      else for(let i=0;i<16;i+=4)chat(st(b0,i),.5);}
+        snare(st(b0,4),G===0?.55:.8);snare(st(b0,12),G===0?.6:.85);if(G>0&&Math.random()<.3)snare(st(b0,choose([7,15])),.2);
+        const hs=G===0?4:G===1?2:1;for(let i=0;i<16;i+=hs)hat(st(b0,i),(i%4===0?1:.6)*(G===0?.5:.8));
+        if(fill){snare(st(b0,14),.45);snare(st(b0,15),.6);}}
+      else{ /* house: four on the floor, claps, offbeat open hats, a shaker */
+        for(const i of [0,4,8,12])hkick(st(b0,i),G===0?.85:1);if(G===0){rim(st(b0,4),.55);rim(st(b0,12),.6);}else{clap(st(b0,4),[.4,.55,.65][G]);clap(st(b0,12),[.45,.6,.7][G]);}
+        for(const i of [2,6,10,14])hat(st(b0,i),[.25,.35,.4][G],true);if(G>=1)for(let i=0;i<16;i++)if(G===2?i%4!==2:true)(G===2?hat:shaker)(st(b0,i),i%2?.4:.65);
+        if(fill)clap(st(b0,15),.4);}}
+    else if(bd)for(let i=2;i<16;i+=4)hat(st(b0,i),.35,D===3);
+    /* ---- BASS: follows the chords, in the drums' feel ---- */
+    if(BS>0&&!bd){const lo=BS===2?33:36,r=rootOf(ch,lo,lo+11),r5=r+7>lo+16?r-5:r+7,nr=rootOf(nx,lo,lo+11);
+      const play=(i,m,len,v)=>{const tt=st(b0,i),dur=len*step;logHit('bs',tt);if(BS===1)bassLo(tt,m,dur,v);else if(BS===2)sub(tt,m,dur,v);else if(chip||(chipKeys&&!IND))tri(tt,m+12,dur*.9,v*.9);else sbass(tt,m+12,dur,v);};
+      let pat;
+      if(feel===0)pat=G===2?[[0,r,7],[8,r5,7]]:[[0,r,15*bpc]];
+      else if(feel===2){pat=[[0,r,G===0?10:6]];if(G>=1&&Math.random()<.75)pat.push([10,choose([r,r5,r+12]),4]);if(G===2){if(Math.random()<.5)pat.push([7,r,2]);pat.push([14,nr+choose([-1,2,0]),2]);}}
+      else pat=[[[2,r,5],[10,r,5]],[[2,r,2.2],[6,r+12,1.5],[10,r,2.2],[13,r,1.5]],[[2,r,1],[3,r+12,.9],[6,r,1.5],[10,r,1],[11,r+12,.9],[14,choose([r+7,r+10]),1.5]]][G];
+      if(feel===0&&bpc===2&&bi%2)pat=[];
+      for(const [i,m,len] of pat)play(i,m,len,1);}
+    /* ---- KEYS: chords in the drums' feel (and the hook, below) ---- */
+    if(KO){}
+    else if(K===0){ /* Rhodes */
+      const ns=voice('ep',ch,53,72),v=rnd(.5,.7);
+      if(feel===3){ns.forEach((m,i)=>ep(b0+i*.012,m,full*(G===0?.95:.45),rnd(.5,.62),null,.5,.1));if(G>=1)ns.slice(-3).forEach((m,i)=>ep(st(b0,10)+i*.01,m,beat*.8,.45,null,.4,.2));if(G===2)ns.slice(-3).forEach((m,i)=>ep(st(b0,14)+i*.01,m,beat*.5,.4,null,.4,.2));}
+      else{if(bi%bpc===0)ns.forEach((m,i)=>ep(b0+i*rnd(.012,.03),m,full*bpc*rnd(.6,.9),v*(i?.85:1)));
+        if(feel===2&&G===1&&Math.random()<.45)ns.slice(-3).forEach((m,i)=>ep(st(b0,10)+i*.02,m,beat*1.2,v*.55));
+        if(feel===2&&G===2)for(const i of [6,10,14])if(Math.random()<.55)ns.slice(-3).forEach((m,j)=>ep(st(b0,i)+j*.015,m,beat*.6,v*.5));
+        if(feel===0&&bi%bpc===0)pad(b0,voice('pd',ch,48,67),full*bpc,.45);}}
+    else if(K===1){ /* nylon guitar */
+      const strum=(i,c,len,acc)=>{const ns=voice('g',c,52,69,true);ns.forEach((m,j)=>string(st(b0,i)+j*rnd(.008,.014),m,(.22+.08*Math.random())*acc*(j?.9:1),len,'nyl'));};
+      if(feel===3){for(const i of [2,6,10,14])strum(i,ch,step*1.2,.85);if(G===2)for(const i of [3,11])strum(i,ch,step*.8,.5);} /* offbeat chops */
+      else{const ns=voice('g',ch,48,72,false),seq=ns.concat(ns.slice(1,-1).reverse());const every=G===0?4:2;for(let i=0,k=0;i<16;i+=every,k++)string(st(b0,i),seq[k%seq.length],.26+.06*Math.random(),step*every*2,'nyl');if(feel===2)strum(0,ch,step*3,.6);}} /* fingerpicking */
+    else if(K===2){ /* pad */
+      if(bi%bpc===0){pad(b0,voice('pd',ch,48,67),full*bpc,D>0?.7:1,D>0?.6:3.5,M===0?'triangle':'sawtooth');if(ambient)drone(b0,rootOf(ch,31,43),full*bpc,1);}
+      const ns=voice('gl',ch,67,84),n=ambient?[1,1,2][G]:G;for(let k=0;k<n;k++)if(Math.random()<(ambient?.6:.35))glass(st(b0,choose([0,4,8,12])+k*2),choose(ns),rnd(.35,.6));
+      if(ambient&&Math.random()<.1)mallet(st(b0,choose([2,6,10])),choose(ns)+12,.35,3,1.2,.4);}
+    else{ /* 8-bit arpeggios */
+      const tr=voice('ar',ch,60,76),seq=tr.concat([tr[0]+12]);const ar=G===0||feel===0?2:1;
+      for(let i=0;i<16;i+=ar){const k=G===2?[0,1,2,3,2,1][i%6]:i/ar;pulse(st(b0,i),seq[k%seq.length],step*ar*.85,ar===2?.4:.32,.125,false,-.25);}}
     /* the tune */
-    if(hookOn)playNotes(b0,bi,hook,1);
-    else if(!(bi%8===3)&&bi>=1&&Math.random()<improv)riff(b0,bi);
+    const hookOn=bi%8===2&&!(ambient&&bi%16!==2);
+    if(bi%64===32||!hookB)hookB=makeHook(seeded(SEEDSTR+':b'+Math.floor(bi/64))); /* the B half gets its own hook, and a new one every 64 bars */
+    const cur=Math.floor(bi/32)%2?hookB:hook;
+    if(LEAD){if(hookOn){const v=(hookN++)%4; /* the hook develops: as written, a new ending, a rest, then moved up a step */
+        if(v===0)playNotes(b0,bi,cur,1);
+        else if(v===1)playNotes(b0,bi,cur.map((h,i)=>i===cur.length-1?Object.assign({},h,{d:h.d+choose([-3,-1,2])}):h),.95);
+        else if(v===2){if(Math.random()<improv*1.5)riff(b0,bi,cur);}
+        else playNotes(b0,bi,cur.map(h=>Object.assign({},h,{d:h.d+2})),.9);}
+      else if(bi%8!==3&&bi>=1&&Math.random()<improv)riff(b0,bi,cur);} /* the tune lives in the keys */
     bar++;}
-  let cn=a.currentTime+.1;
-  function crackles(until){if(!RECORDING[rec].cr){cn=Math.max(cn,until);return;}if(cn<a.currentTime)cn=a.currentTime+.05;while(cn<until){const tt=cn,pop=Math.random()<.04;noise(tt,pop?'lowpass':'bandpass',pop?900:rnd(1800,5200),pop?.7:1.2,.0008,pop?.035:rnd(.002,.008),pop?rnd(.05,.08):rnd(.01,.045),rnd(-.6,.6),0,crack);cn+=-Math.log(1-Math.random())/7;}}
-  return {src:srcs,ahead:2.2,tick(until){for(const l of layers)l.tick&&l.tick(until);crackles(until);if(t<a.currentTime)t=a.currentTime+.05; /* after a stall, pick up from now rather than playing the missed bars at once */while(t<until){barSlot(t);t+=barDur;}},
-    update(ns){const n=cleanTape(ns);if(n&&n.s!==rec)setRec(n.s,true);}};}
-const REC_LEVEL=[1,.81,.89,.72]; /* per recording, matched by measured loudness */
+  return {src:srcs,ahead:2.2,hits,bpm,beat,step,barDur,tStart,tick(until){for(const l of layers)l.tick&&l.tick(until);if(t<a.currentTime)t=a.currentTime+.05; /* after a stall, pick up from now rather than playing the missed bars at once */while(t<until){barSlot(t);t+=barDur;}},
+    update(){}};}
 window.loafBand=band;window.loafSounds=SOUNDS; /* lets the tests render a tape offline */
 
-function genStart(id,fade){genStop(true);const a=ensureAudio();const master=a.createGain();master.gain.value=0;const an=a.createAnalyser();an.fftSize=64;an.smoothingTimeConstant=.8;
+function genStart(id,fade){genStop(true);const a=ensureAudio();const master=a.createGain();master.gain.value=0;const an=a.createAnalyser();an.fftSize=256;an.smoothingTimeConstant=.5;
   master.connect(an);an.connect(a.destination);const g={id,master,an,src:[],timers:[]};
-  const snd=(SOUNDS[id]||((a,d)=>band(a,d,tapeOf(id))))(a,master);g.snd=snd;g.src.push(...snd.src);if(snd.tick){const ah=snd.ahead||8;snd.tick(a.currentTime+ah);g.timers.push(setInterval(()=>snd.tick(a.currentTime+ah),500));}
+  const tpp=tapeOf(id);const snd=(SOUNDS[id]||((a,d)=>band(a,d,tpp)))(a,master);g.snd=snd;g.src.push(...snd.src);if(snd.tick){const ah=snd.ahead||8;snd.tick(a.currentTime+ah);g.timers.push(setInterval(()=>snd.tick(a.currentTime+ah),500));}
   master.gain.setValueAtTime(0,a.currentTime);master.gain.linearRampToValueAtTime(vol()*levelOf(id),a.currentTime+(fade||2));gen=g;dirty=true;paintKeys();}
 function genStop(quick){if(!gen)return;const g=gen;gen=null;g.timers.forEach(clearInterval);try{const a=actx;g.master.gain.cancelScheduledValues(a.currentTime);g.master.gain.setValueAtTime(g.master.gain.value,a.currentTime);
     g.master.gain.linearRampToValueAtTime(0,a.currentTime+(quick?.15:.8));setTimeout(()=>{g.src.forEach(s=>{try{s.stop();}catch(e){}});g.master.disconnect();},quick?250:1000);}catch(e){}dirty=true;paintKeys();}
-function stationName(){return S.stationName||'Radio';}
+function stationName(){try{const tp=tapeOf(S.station);if(tp)return shownTape(tp).n;}catch(e){}return S.stationName||'Radio';} /* a tape shows the name it has (or would get) */
 function playRadio(){genStart(S.station);}
 function stopRadio(){genStop();dirty=true;paintKeys();}
-function vu(t){const on=playing();
-  const src=gen&&gen.an;if(on&&src){if(!freq)freq=new Uint8Array(32);src.getByteFrequencyData(freq);for(let i=0;i<16;i++){const v=freq[Math.min(freq.length-1,i+1)]/255;bands[i]+=(Math.pow(v,1.4)-bands[i])*.5;}}
+const peaks=new Float32Array(16),peakT=new Float32Array(16),bandMax=new Float32Array(16).fill(.2),bandLo=new Float32Array(16);let EDGES=null,vuT=-1;
+/* the groove, read off the sound itself (so it works for every station and tape): a kick is a jump in the low bands,
+   a hat a jump in the high ones. Loafie listens to this. */
+const groove={kickAt:-9,hatAt:-9,lowArmed:true,hiArmed:true};
+function vu(t){const on=playing();if(t===vuT)return bands;vuT=t;
+  const src=gen&&gen.an;if(on&&src){const n=src.frequencyBinCount;if(!freq||freq.length!==n){freq=new Uint8Array(n);EDGES=[];let e=1;for(let i=0;i<=16;i++){const want=Math.round(Math.pow(Math.min(n,72),i/16));e=Math.max(i?EDGES[i-1]+1:1,want);EDGES.push(e);}}
+    src.getByteFrequencyData(freq);const raw=new Float32Array(16);
+    for(let i=0;i<16;i++){let v=0;for(let k=EDGES[i];k<EDGES[i+1]&&k<n;k++)v=Math.max(v,freq[k]);raw[i]=v/255;} /* sixteen bands spread out like an ear hears them: bass on the left, sparkle on the right */
+    for(let i=0;i<16;i++){const x=raw[i];bandLo[i]+=(x-bandLo[i])*(x<bandLo[i]?.3:.008);if(x>bandMax[i])bandMax[i]=x;else bandMax[i]+=(x-bandMax[i])*.006;bandMax[i]=Math.max(bandMax[i],bandLo[i]+.06);
+      const v=Math.pow(clamp((x-bandLo[i])/(bandMax[i]-bandLo[i]),0,1),2.3)*clamp(bandMax[i]/.12,0,1);bands[i]+=(v-bands[i])*(v>bands[i]?.8:.18);}
+    /* each band keeps its own floor and ceiling, so every bar swings through its whole height and jumps on the beat */
+    {const low=Math.max(bands[0],bands[1],bands[2]),hi=Math.max(bands[11],bands[12],bands[13],bands[14],bands[15]); /* a kick: the low bars fall back, then jump; a hat: the same up top */
+      if(low<.45)groove.lowArmed=true;else if(groove.lowArmed&&low>.75&&t-groove.kickAt>.18){groove.kickAt=t;groove.lowArmed=false;}
+      if(hi<.4)groove.hiArmed=true;else if(groove.hiArmed&&hi>.7&&t-groove.hatAt>.08){groove.hatAt=t;groove.hiArmed=false;}}}
   else for(let i=0;i<16;i++){const target=on?.25+.55*Math.abs(Math.sin(t*2.1+i*.9))*Math.abs(Math.sin(t*.7+i*.3))+Math.random()*.12:0;bands[i]+=(target-bands[i])*(on?.25:.1);}
+  for(let i=0;i<16;i++){if(bands[i]>=peaks[i]){peaks[i]=bands[i];peakT[i]=t;}else if(t-peakT[i]>.3)peaks[i]=Math.max(bands[i],peaks[i]-.012);} /* the peak caps hang, then drift down */
   return bands;}
 
 /* ================= The card ================= */
 /* one card on the right: the station while the radio plays, otherwise what the cat is up to */
 let dirty=true,cardStart=0,cardKey='';
 let boardTextLast='';function boardText(now){const el=document.getElementById('boardText');if(!el)return;const ck=clock(now);
-  const s=(BC?'':ck.s+' '+(H24?'':ck.ap)+', '+now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'. ')+(gen?'Playing '+stationName()+'.':'Nothing playing.')+(S.sitStart?' Sitting.':'');if(s!==boardTextLast){boardTextLast=s;el.textContent=s;}}
-function currentCard(){if(BC)return {k:'bc'+S.station,label:'LOAF FM',text:stationName()};if(tuning)return {k:'tune',label:tuneFreq()+' FM',text:'',tune:true};const sp=sitPhase();
-  if(sp&&sp.ph==='sit')return {k:'sit',label:'SITTING',text:sp.left+(sp.left===1?' minute':' minutes')};
-  if(sp&&sp.ph==='rest')return {k:'rest',label:'REST',text:'no hurry'};
+  const s=(BC?'':ck.s+' '+(H24?'':ck.ap)+', '+now.toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'})+'. ')+(gen?'Playing '+stationName()+'.':'Nothing playing.')+(cat.nap?' Loafie is napping.':'');if(s!==boardTextLast){boardTextLast=s;el.textContent=s;}}
+function currentCard(){if(BC)return {k:'bc'+S.station,label:'LOAF FM',text:stationName()};if(tuning)return {k:'tune',label:tuneFreq()+' FM',text:'',tune:true};
   return playing()?{k:muted?'mute':'radio',label:muted?'MUTED':freqOf(gen&&gen.id)+' FM',lamp:!muted,text:stationName()}:{k:'cat',label:'LOAFIE',text:catWords()};}
 
 /* ================= The window ================= */
@@ -555,6 +575,19 @@ function draw(t,now){fb.fill(-1);const P=pal();
   if(R(P.BG)+G(P.BG)+B(P.BG)>0)rect(0,0,W,H,dim(P.BG,.6));
   /* left: the clock */
   let ck=clock(now);if(BC){const f=freqOf(S.station);ck={s:f,ap:'FM',date:BC.mode==='live'?(clock(now).s+' '+clock(now).ap+' '+tzLabel()).trim():'STEREO'};}
+  let card;if(flash.until>Date.now())card={label:'',text:flash.msg,flash:true};
+  else{card=currentCard();if(card.k+card.text!==cardKey){cardKey=card.k+card.text;cardStart=t;}}
+  const on=playing();
+  /* while something plays, the mix is the hero: the time shrinks to the top line and the track, the meter and the cat get the board */
+  const hero=on&&!BC&&!!card&&!card.flash&&(card.k==='radio'||card.k==='mute');
+  if(hero){let x=3;text(ck.s,x,4,'small',P.C);x+=textW(ck.s,'small');if(!H24){x+=2;text(ck.ap,x,4,'small',P.PEG?P.PEG[5]:P.S2);x+=textW(ck.ap,'small');}
+    px(x+3,6,P.S2);x+=7;text(card.label,x,4,'small',P.S2);
+    const sw=textW('STEREO','small');if(card.lamp)text('STEREO',W-2-sw,4,'small',P.A);
+    const x0=3,area=W-x0-2,big=textW(card.text,'big'),sm=textW(card.text,'small'),el=t-cardStart;let eqH=8;
+    clip=[x0,W];const two=wrap(card.text,area,'small');if(big<=area)text(card.text,x0,11,'big',P.C);else if(sm<=area)text(card.text,x0,12,'small',P.C);
+    else if(two.length===2){two.forEach((l,i)=>text(l,x0,11+i*6,'small',P.C));eqH=6;}
+    else{const sp=13,lead=2.2,tail=2,travel=(sm-area)/sp;const off=Math.round(clamp((el-lead)*sp,0,sm-area));text(card.text,x0-off,12,'small',P.C);if(el>lead+travel+tail)cardStart=t;}clip=null;
+    if(CALM.some(c=>c.id===S.station))breath(t,P,x0,area);else meter(t,P,x0,area,eqH);return;}
   const tw=textW(ck.s,'big',2);text(ck.s,3,4,'big',P.C,2);let right=3+tw;
   if(P.DIG){let cx=3,d=ck.s.replace(/\D/g,'').length;for(const ch of ck.s){const w=(glyph(ch,'big').length+1)*2;if(/\d/.test(ch)){d--;const c=P.DIG[(P.DIG.length-1-d%P.DIG.length+P.DIG.length)%P.DIG.length];
     for(let y=4;y<4+FH.big*2;y++)for(let x=cx;x<cx+w&&x<W;x++)if(fb[y*W+x]===P.C)fb[y*W+x]=c;}cx+=w;}} /* each digit its own colour; the colon stays clear */
@@ -562,15 +595,20 @@ function draw(t,now){fb.fill(-1);const P=pal();
   text(ck.date,3,22,'small',P.PEG?P.PEG[1]:P.S2);
   const dx=Math.max(58,right+4);for(let y=3;y<29;y++)px(dx,y,dim(P.A,.75));
   /* right: one card, with the spectrum under it while the radio plays */
-  const x0=dx+5,area=W-x0-1;const on=playing();
-  let card;if(flash.until>Date.now())card={label:'',text:flash.msg,flash:true};
-  else{card=currentCard();if(card.k+card.text!==cardKey){cardKey=card.k+card.text;cardStart=t;}}
-  let twoLines=false;
-  if(card){const wrapIt=!card.flash,lines=wrapIt?wrap(card.text,area):[card.text];const canWrap=wrapIt&&lines.length<=2;twoLines=canWrap&&lines.length>1; /* in broadcast mode a long station name wraps rather than crawls */
+  const x0=dx+5,area=W-x0-1;
+  let twoLines=false,eqH=8;
+  const meterCard=!!card&&on&&!BC&&!card.flash&&(card.k==='radio'||card.k==='mute');
+  if(meterCard){const big=textW(card.text,'big'),sm=textW(card.text,'small'),el=t-cardStart; /* fits big, else the small letters on one line, else they crawl */
+    if(card.label){let lb=card.label;while(lb.length>1&&textW(lb,'small')>area)lb=lb.slice(0,-1);text(lb,x0,4,'small',P.S2);}
+    {const w=textW('STEREO','small'),rx=W-2-w;if(card.lamp&&rx>x0+textW(card.label||'','small')+3)text('STEREO',rx,4,'small',P.A);}
+    clip=[x0,W];const two=wrap(card.text,area,'small');if(big<=area)text(card.text,x0,11,'big',P.C);else if(sm<=area)text(card.text,x0,12,'small',P.C);
+    else if(two.length===2){two.forEach((l,i)=>text(l,x0,11+i*6,'small',P.C));eqH=6;}
+    else{const sp=13,lead=2.2,tail=2,travel=(sm-area)/sp;const off=Math.round(clamp((el-lead)*sp,0,sm-area));text(card.text,x0-off,12,'small',P.C);if(el>lead+travel+tail)cardStart=t;}clip=null;}
+  else if(card){const wrapIt=!card.flash,lines=wrapIt?wrap(card.text,area):[card.text];const canWrap=wrapIt&&lines.length<=2;twoLines=canWrap&&lines.length>1; /* in broadcast mode a long station name wraps rather than crawls */
     const tw2=textW(card.text,'big');const scroll=!canWrap&&tw2>area;const el=t-cardStart;
     const night=nightDim(now)<.7;const speed=(card.slow?11:15)*(night?.85:1),lead=2.2,tail=2; /* unhurried; slower still after dark */const travel=scroll?(tw2-area)/speed:0;
     if(card.label){let lb=card.label;while(lb.length>1&&textW(lb,'small')>area)lb=lb.slice(0,-1);text(lb,x0,4,'small',card.tune?P.C:P.S2);}
-    {const sl=sleepLeft(),right=sl?'SLEEP '+sl:(card.lamp||card.tune)?'STEREO':'';if(right&&!BC){const w=textW(right,'small'),rx=W-2-w;if(rx>x0+textW(card.label||'','small')+3)text(right,rx,4,'small',sl?P.S2:card.tune?dim(P.A,.35+.3*Math.random()):P.A);}} /* the STEREO lamp lights when a station locks in */
+    {const sl=0,right=(card.lamp||card.tune)?'STEREO':'';if(right&&!BC){const w=textW(right,'small'),rx=W-2-w;if(rx>x0+textW(card.label||'','small')+3)text(right,rx,4,'small',sl?P.S2:card.tune?dim(P.A,.35+.3*Math.random()):P.A);}} /* the STEREO lamp lights when a station locks in */
     clip=[x0,W];
     if(canWrap)lines.forEach((l,i)=>text(l,x0,(card.label?11:(lines.length===1?12:6))+i*9,'big',card.flash?P.A:P.C));
     else if(scroll&&card.k!=='cat'&&wrap(card.text,area,'small').length<=3){wrap(card.text,area,'small').forEach((l,i)=>text(l,x0,(card.label?11:6)+i*7,'small',P.C));twoLines=true;} /* a long station or tape name drops to the small letters rather than crawling */
@@ -578,13 +616,24 @@ function draw(t,now){fb.fill(-1);const P=pal();
     else text(card.text,x0,11,'big',card.flash?P.A:P.C);
     clip=null;
     if(scroll&&el>lead+travel+tail)cardStart=t; /* a long station name crawls, pauses, and starts again */}
-  if(on&&!twoLines){const b=vu(t);const nb=Math.floor((area+1)/4);for(let i=0;i<nb;i++){const hgt=Math.round(b[Math.floor(i*16/nb)]*8);for(let j=0;j<hgt;j++)rect(x0+i*4,28-j,3,1,j>5?P.A:j>2?(P.PEG?P.S2:P.C):(P.PEG?P.PEG[3]:P.MID));}}
+  if(on&&!twoLines)meter(t,P,x0,area,eqH);
+}
+/* CALM: a breathing light where the meter would be. Four seconds in, six out; follow it or don't */
+function breath(t,P,x0,area){const cyc=10,ph=t%cyc,inh=ph<4,q=inh?ph/4:1-(ph-4)/6,e=.5-.5*Math.cos(Math.PI*q);const lab=inh?'IN':'OUT';text(lab,x0,23,'small',dim(P.S2,.8));
+  const bx=x0+16,bw=area-16,w=Math.max(1,Math.round(bw*e)),cx=bx+Math.round((bw-w)/2);for(let y=22;y<28;y++)rect(cx,y,w,1,dim(P.C,y===22||y===27?.35:.55+.45*e));}
+/* the 16-band meter: bars snap up on the beat, the tops run orange and red, a peak cap hangs for a moment */
+function meter(t,P,x0,area,eqH){const b=vu(t);const pitch=area>=90?6:4,bw=pitch-2,nb=Math.floor((area+2)/pitch); /* 80s LED meter: chunky bars with a gap between them */
+  const GRN=0x55c975,AMB=0xf2d14d,RED=0xe85a4f;const col=j=>{const f=(j+1)/eqH;return f>.9?RED:f>.55?AMB:GRN;}; /* green, then amber, then red at the top, like the real thing */
+  for(let i=0;i<nb;i++){const k=Math.floor(i*16/nb),hgt=Math.max(1,Math.min(eqH,Math.round(b[k]*eqH)));for(let j=0;j<hgt;j++)rect(x0+i*pitch,28-j,bw,1,col(j));
+    const pj=Math.min(eqH-1,Math.round(peaks[k]*eqH)-1);if(pj>=hgt&&pj>0)rect(x0+i*pitch,28-pj,bw,1,dim(col(pj),.85));}
 }
 
 /* ================= Renderer ================= */
 const win=document.getElementById('window'),bgC=document.getElementById('bg'),ledC=document.getElementById('led'),unit=document.getElementById('unit'),face=document.getElementById('face');
 const bg=bgC.getContext('2d'),ctx=ledC.getContext('2d');
-const GH=18,gameWin=document.getElementById('gameWin'),gbgC=document.getElementById('gbg'),gledC=document.getElementById('gled'),gbg=gbgC.getContext('2d'),gctx=gledC.getContext('2d');let pitch=1;const sprites=new Map();const DOT=.36,GLOW=.6;
+const GH=18,gameWin=document.getElementById('gameWin'),gbgC=document.getElementById('gbg'),gledC=document.getElementById('gled'),gbg=gbgC.getContext('2d'),gctx=gledC.getContext('2d');let pitch=1;const sprites=new Map(),gsprites=new Map();let SPR=sprites,ZOOM=1,gpitch=1,camX=0,petHint=null;
+/* on a phone the desk zooms in: twice the size, with a camera that follows her; drawing it swaps in the desk's own scale */
+function withGame(fn){const p=pitch,s0=SPR;pitch=gpitch;SPR=gsprites;try{fn();}finally{pitch=p;SPR=s0;}}const DOT=.36,GLOW=.6;
 function fitUnit(){if(BC){const rows=H+GH+2,pad=parseFloat(getComputedStyle(unit).paddingTop)||16;unit.style.width=Math.max(288,Math.min(innerWidth*.88,(innerHeight*.86-pad*2-8)*(W/rows)+pad*2))+'px';return;}const top=document.querySelector('.top');const topH=top&&top.offsetParent!==null?top.offsetHeight:16;const pad=parseFloat(getComputedStyle(unit).paddingTop)||16,gap=parseFloat(getComputedStyle(face).marginTop)||16;const availH=Math.min(window.innerHeight-topH-16,window.innerHeight*.66),availW=document.documentElement.clientWidth-2*16;const chrome=pad*2+face.offsetHeight+gap+8;const rows=H+GH+2;unit.style.width=Math.max(288,Math.min(availW,1200,(availH-chrome)*(W/rows)+28))+'px';}
 const isPeg=()=>!!(PALETTES[S.palette]||{}).peg;
 const PV=new Float32Array(W*(H+GH)).map(()=>.8+Math.random()*.2); /* pegs pushed in to slightly different depths */
@@ -592,18 +641,22 @@ function dots(g,cv,rows){const cw=cv.width,peg=isPeg();g.fillStyle=peg?'#000':'#
   for(let y=0;y<rows;y++)for(let x=0;x<W;x++){g.beginPath();g.arc((x+.5)*pitch,(y+.5)*pitch,r,0,Math.PI*2);g.fill();}}
 function layout(){fitUnit();const dpr=Math.min(window.devicePixelRatio||1,2);const cw=Math.round(win.clientWidth*dpr);pitch=cw/W;const ch=Math.round(pitch*H);
   bgC.width=ledC.width=cw;bgC.height=ledC.height=ch;sprites.clear();dots(bg,bgC,H);
-  gbgC.width=gledC.width=cw;gbgC.height=gledC.height=Math.round(pitch*GH);dots(gbg,gbgC,GH);}
-function sprite(c){let sp=sprites.get(c);if(sp)return sp;if(sprites.size>600)sprites.clear();if(isPeg())return pegSprite(c);
+  ZOOM=1; /* one board, one dot size, phones too (the camera code stays for a zoomed desk, but it's off) */gpitch=pitch*ZOOM;gsprites.clear();gameWin.classList.toggle('zoom',ZOOM>1);
+  gbgC.width=gledC.width=Math.round(W*gpitch);gbgC.height=gledC.height=Math.round(gpitch*GH);withGame(()=>dots(gbg,gbgC,GH));camMove(true);}
+function camMove(snap){const view=W/ZOOM;if(petHint&&!petHint.hidden)petHint.style.left=((cat.x+7-camX)/view*100).toFixed(1)+'%';
+  if(ZOOM<2){if(camX){camX=0;gbgC.style.transform=gledC.style.transform='';}return;}const want=clamp(cat.x+7-view/2,0,W-view);
+  const nx=snap?want:camX+(want-camX)*.06;if(Math.abs(nx-camX)<.01&&!snap)return;camX=nx;const tf='translateX('+(-camX/W*100).toFixed(3)+'%)';gbgC.style.transform=gledC.style.transform=tf;}
+function sprite(c){let sp=SPR.get(c);if(sp)return sp;if(SPR.size>600)SPR.clear();if(isPeg())return pegSprite(c);
   const size=Math.ceil(pitch*2.6);const cv=document.createElement('canvas');cv.width=cv.height=size;const g=cv.getContext('2d');const r=R(c),gg=G(c),b=B(c),half=size/2;
   const grad=g.createRadialGradient(half,half,0,half,half,half);grad.addColorStop(0,`rgba(${r},${gg},${b},${.6*GLOW})`);grad.addColorStop(.35,`rgba(${r},${gg},${b},${.22*GLOW})`);grad.addColorStop(1,`rgba(${r},${gg},${b},0)`);
   g.fillStyle=grad;g.fillRect(0,0,size,size);g.globalCompositeOperation='lighter';const dr=pitch*DOT;g.fillStyle=`rgb(${r},${gg},${b})`;g.beginPath();g.arc(half,half,dr,0,Math.PI*2);g.fill();
-  g.fillStyle='rgba(255,255,255,.3)';g.beginPath();g.arc(half,half,dr*.45,0,Math.PI*2);g.fill();sp={cv,off:half};sprites.set(c,sp);return sp;}
+  g.fillStyle='rgba(255,255,255,.3)';g.beginPath();g.arc(half,half,dr*.45,0,Math.PI*2);g.fill();sp={cv,off:half};SPR.set(c,sp);return sp;}
 /* a plastic peg: a round translucent cap, brighter at the top-left where the light catches it */
 function pegSprite(c){const size=Math.ceil(pitch*2.4);const cv=document.createElement('canvas');cv.width=cv.height=size;const g=cv.getContext('2d');const r=R(c),gg=G(c),b=B(c),half=size/2,dr=pitch*.43;
   const glow=g.createRadialGradient(half,half,0,half,half,half);glow.addColorStop(0,`rgba(${r},${gg},${b},.46)`);glow.addColorStop(.4,`rgba(${r},${gg},${b},.13)`);glow.addColorStop(1,`rgba(${r},${gg},${b},0)`);g.fillStyle=glow;g.fillRect(0,0,size,size);
   const cap=g.createRadialGradient(half-dr*.35,half-dr*.35,dr*.1,half,half,dr);cap.addColorStop(0,`rgb(${Math.min(255,r+90)},${Math.min(255,gg+90)},${Math.min(255,b+90)})`);cap.addColorStop(.55,`rgb(${r},${gg},${b})`);cap.addColorStop(1,`rgb(${Math.round(r*.7)},${Math.round(gg*.7)},${Math.round(b*.7)})`);
   g.fillStyle=cap;g.beginPath();g.arc(half,half,dr,0,Math.PI*2);g.fill();g.fillStyle='rgba(255,255,255,.75)';g.beginPath();g.arc(half-dr*.38,half-dr*.4,dr*.2,0,Math.PI*2);g.fill();
-  const sp={cv,off:half};sprites.set(c,sp);return sp;}
+  const sp={cv,off:half};SPR.set(c,sp);return sp;}
 function present(alpha,g=ctx,buf=fb,rows=H,base=0){g.clearRect(0,0,g.canvas.width,g.canvas.height);const a=clamp(alpha,0,1);g.globalAlpha=a;const peg=isPeg();
   for(let y=0;y<rows;y++)for(let x=0;x<W;x++){const c=buf[y*W+x];if(c<0)continue;const k=base+y*W+x;g.globalAlpha=a*(peg?PV[k]:.86+(PV[k]-.8)*.7); /* no two lights quite the same brightness: pegs vary more, LEDs a little */const sp=sprite(c);g.drawImage(sp.cv,(x+.5)*pitch-sp.off,(y+.5)*pitch-sp.off);}g.globalAlpha=1;}
 /* now and then a peg is the wrong colour, or one has wandered off on its own: it changes every few minutes */
@@ -613,9 +666,9 @@ function oops(P){if(!P.PEG)return;const w=Math.floor(Date.now()/240000);let h=Ma
   if(rnd()<.55){const x=Math.floor(rnd()*W),y=rnd()<.5?1:30;if(fb[y*W+x]<0)fb[y*W+x]=dim(P.PEG[Math.floor(rnd()*P.PEG.length)],.85);}}
 const t0=performance.now();
 function frame(){const t=(performance.now()-t0)/1000;const now=NOW();
-  draw(t,now);boardText(now);const P0=pal();oops(P0);let alpha=S.brightness*nightDim(now)*(RM.matches?1:.97+Math.random()*.03)*(S.sitStart?.7:1);if(!RM.matches&&Math.random()<.003)alpha*=.8;{const fl=pal().floor*S.brightness;if(alpha<fl)alpha=fl;}
+  draw(t,now);boardText(now);const P0=pal();oops(P0);let alpha=nightDim(now)*(RM.matches?1:.97+Math.random()*.03)*(cat.nap?.6:1); /* Z: the lights go down while she naps */if(!RM.matches&&Math.random()<.003)alpha*=.8;{const fl=pal().floor;if(alpha<fl)alpha=fl;}
   const warm=clamp(t/1.2,0,1);if(warm<1&&!P0.PEG)alpha*=warm*(.6+.4*Math.random());present(alpha); /* a short warm-up flicker on load (the pegboard just appears) */
-  drawGame(t);present(alpha,gctx,gfb,GH,W*H);
+  drawGame(t);withGame(()=>present(alpha,gctx,gfb,GH,W*H));camMove(false);
   if(vidPip.ready)vidFrame();}
 /* the loop runs on whichever window is showing the board, so it keeps going while she floats */
 let host=window,loopGen=0;
@@ -629,7 +682,7 @@ function restartLoop(){loopGen++;loop(loopGen);}
 /* ================= Face ================= */
 const $=id=>document.getElementById(id);
 const stationEl=$('station');
-function setStation(s){const from=S.station,was=!!gen;S.station=s.id;S.stationName=s.name;save();dirty=true;fillStations();if(was){if(from!==s.id&&!BC)tuneTo(from,s.id);else playRadio();}}
+function setStation(s){const from=S.station,was=!!gen;S.station=s.id;S.stationName=s.name;save();dirty=true;fillStations();if(window.__mtStation)window.__mtStation(s.id);if(was){if(from!==s.id&&!BC)tuneTo(from,s.id);else playRadio();}}
 /* Changing station while one plays: the dial rolls through the frequencies in between with a breath of FM static, then the new station fades in */
 let tuning=null;
 function tuneTo(from,to){genStop(true);const f0=parseFloat(freqOf(from)),f1=parseFloat(freqOf(to)),dur=Math.min(1.1,.45+Math.abs(f1-f0)*.05);
@@ -642,18 +695,38 @@ function staticBurst(dur){if(muted)return;try{const a=ensureAudio(),t=a.currentT
 function fillStations(){stationEl.innerHTML='';{const og=document.createElement('optgroup');og.label='Loaf FM';MUSIC.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;og.appendChild(o);});stationEl.appendChild(og);}{const og=document.createElement('optgroup');og.label='Calm';CALM.forEach(s=>{const o=document.createElement('option');o.value=s.id;o.textContent=s.name;og.appendChild(o);});stationEl.appendChild(og);}
   if(!BC){const og=document.createElement('optgroup');og.label='Your mixtapes';
     for(const tp of S.tapes){const o=document.createElement('option');o.value='tape:'+tp.id;o.textContent=tp.n;og.appendChild(o);}
-    if(draft){const o=document.createElement('option');o.value='tape:draft';o.textContent=draft.n+' (not saved)';og.appendChild(o);}
-    const nw=document.createElement('option');nw.value='__new';nw.textContent='+ Make a mixtape…';og.appendChild(nw);
-    const cur=tapeOf(S.station);if(cur&&S.station!=='tape:draft'){const ed=document.createElement('option');ed.value='__edit';ed.textContent='Open “'+cur.n+'”…';og.appendChild(ed);}
-    stationEl.appendChild(og);}
+    if(draft){const o=document.createElement('option');o.value='tape:draft';o.textContent=shownTape(draft).n+' (not saved)';og.appendChild(o);}
+    if(og.children.length)stationEl.appendChild(og);}
   if(!S.station){const o=document.createElement('option');o.value='';o.textContent='Pick a sound';stationEl.insertBefore(o,stationEl.firstChild);}
-  stationEl.value=S.station||'';}
+  stationEl.value=S.station||'';if(window.__dialReady)paintDial();}
 if(!PALETTES[S.palette])S.palette='pegs';
 if(!CALM.some(s=>s.id===S.station)&&!MUSIC.some(s=>s.id===S.station)&&!(tapeOf(S.station)&&!BC)&&!(BC&&tapeOf(S.station))){S.station='gen:purr';S.stationName='Purr';} /* a radio station saved before live radio was dropped */
 delete S.stationUrl;
 fillStations();
-stationEl.addEventListener('change',()=>{const v=stationEl.value;if(v==='__new'||v==='__edit'){stationEl.value=S.station||'';openMixtape(v==='__edit');return;}
+stationEl.addEventListener('change',()=>{const v=stationEl.value;
   const tp=tapeOf(v);const s=CALM.find(x=>x.id===v)||MUSIC.find(x=>x.id===v)||(tp&&{id:v,name:tp.n});if(s)setStation(s);else stationEl.value=S.station||'';});
+/* ================= the tuner =================
+   A digital tuner, like an 80s receiver: a glowing readout (band, frequency, name) with ◀ ▶ to step, and three band
+   keys that are also the three ways to use Loaf FM: FOCUS (the five music stations), CALM (rain, ocean, fire, purr,
+   brown noise) and TAPES (your mixtapes, with a count, so they're never hidden). The real <select> stays for
+   keyboard and screen-reader users. */
+const BANDS=[{k:'focus',name:'FOCUS'},{k:'calm',name:'CALM'},{k:'tapes',name:'TAPES'}];
+function bandOf(id){return MUSIC.some(m=>m.id===id)?'focus':CALM.some(c=>c.id===id)?'calm':'tapes';}
+function bandList(k){if(k==='focus')return MUSIC.map(m=>({id:m.id,name:m.name}));if(k==='calm')return CALM.map(c=>({id:c.id,name:c.name}));
+  const out=S.tapes.map(tp=>({id:'tape:'+tp.id,name:tp.n}));if(draft)out.push({id:'tape:draft',name:shownTape(draft).n+' (not saved)'});return out;}
+const lastIn={};
+function paintDial(){const band=bandOf(S.station),list=bandList(band),i=list.findIndex(x=>x.id===S.station);lastIn[band]=S.station;
+  $('tuneBand').textContent=BANDS.find(b=>b.k===band).name+(list.length>1?' · '+(i+1)+'/'+list.length:'');
+  $('tuneFreq').textContent=freqOf(S.station);$('tuneName').textContent=(list[i]&&list[i].name)||stationName();
+  document.querySelectorAll('.bandkey').forEach(b=>{b.setAttribute('aria-pressed',String(b.dataset.band===band));if(b.dataset.band==='tapes')b.querySelector('em').textContent=bandList('tapes').length||'+';});}
+function dialTune(id){if(id===S.station)return;const tp=tapeOf(id);const st=CALM.find(x=>x.id===id)||MUSIC.find(x=>x.id===id)||(tp&&{id,name:tp.n});if(st)setStation(st);}
+function dialStep(d){const list=bandList(bandOf(S.station));const i=list.findIndex(x=>x.id===S.station);const n=list[(i+d+list.length)%list.length];if(n)dialTune(n.id);}
+$('dialPrev').addEventListener('click',()=>dialStep(-1));$('dialNext').addEventListener('click',()=>dialStep(1));
+document.querySelectorAll('.bandkey').forEach(b=>b.addEventListener('click',()=>{const k=b.dataset.band,list=bandList(k);
+  if(!list.length){openMixtape();return;} /* no tapes yet: TAPES makes one */
+  if(bandOf(S.station)===k){dialStep(1);return;} /* tap the lit band again for the next one */
+  dialTune(lastIn[k]&&list.some(x=>x.id===lastIn[k])?lastIn[k]:list[0].id);}));
+window.__dialReady=true;paintDial();
 
 /* ================= The mixtape deck =================
    Opens inside the case, under the controls. Changes are heard live: tempo, busyness, tone, drums and mood adjust the
@@ -664,125 +737,171 @@ const FACE=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.',
 const REEL=[[1,0],[2,0],[3,1],[3,2],[2,3],[1,3],[0,2],[0,1]];
 function cassettePix(tp,phase){ /* a flat pixel-art cassette; Loafie glows in the window like a little LED screen */
   const W2=56,H2=33,cells=[];const P=(x,y,v)=>{if(x>=0&&y>=0&&x<W2&&y<H2)cells[y*W2+x]=v;};const Rr=(x,y,w,h,v)=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++)P(x+i,y+j,v);};
-  const K='#1d1c21',S1='#4a4950',S2='#5d5c64',LP='#fffaf0',SC='#a8a49a',lab=TAPE_COLORS[tp.c];
+  const sh=SHELLS[tp.c]||SHELLS[0],K='#1d1c21',S1=sh.sh,S2=sh.hi,LP=sh.strip,SC=sh.clear?sh.hi:'#a8a49a',lab=sh.lab;
   Rr(1,0,W2-2,H2,K);Rr(0,1,W2,H2-2,K);Rr(1,1,W2-2,H2-2,S1);Rr(1,1,W2-2,1,S2);          /* shell */
-  Rr(4,3,48,21,K);Rr(5,4,46,19,lab);Rr(5,4,46,6,LP);                                     /* label, white strip for the name */
-  for(let x=7;x<50;x+=2)P(x,11,K);                                                       /* a dotted rule */
+  if(sh.clear)for(let y=3;y<31;y+=3)for(let x=2;x<54;x+=7)if((x+y)%2)P(x,y,S2);           /* see-through plastic: a glint of the insides */
+  Rr(4,3,48,21,K);Rr(5,4,46,19,lab);Rr(5,4,46,6,LP);                                     /* label, a strip for the name */
+  if(sh.band){Rr(5,10,46,1,sh.band);Rr(5,20,46,2,sh.band);}                               /* a printed stripe */
+  for(let x=7;x<50;x+=2)P(x,11,sh.band?LP:K);                                            /* a dotted rule */
   Rr(17,12,22,11,K);                                                                     /* the window (Loafie goes here) */
-  const reel=cx=>{Rr(cx-3,14,7,7,K);Rr(cx-2,15,5,5,'#f1e7cf');Rr(cx-1,16,3,3,K);P(cx,17,'#f1e7cf');
-    (phase%2?[[-1,-1],[1,-1],[1,1],[-1,1]]:[[0,-2],[2,0],[0,2],[-2,0]]).forEach(([dx,dy])=>P(cx+dx,17+dy,K));};
+  const RING=[[0,-2],[1,-2],[2,-2],[2,-1],[2,0],[2,1],[2,2],[1,2],[0,2],[-1,2],[-2,2],[-2,1],[-2,0],[-2,-1],[-2,-2],[-1,-2]]; /* the 16 dots round the hub */
+  const reel=cx=>{Rr(cx-3,14,7,7,K);Rr(cx-2,15,5,5,'#f1e7cf');Rr(cx-1,16,3,3,K);P(cx,17,'#f1e7cf');const f=phase%4;
+    for(let s=0;s<4;s++){const [dx,dy]=RING[(s*4+f)%16];P(cx+dx,17+dy,K);} /* four spokes stepping round the hub */
+    if(f%2)[[2,-2],[2,2],[-2,2],[-2,-2]].forEach(([dx,dy])=>P(cx+dx,17+dy,K));}; /* on the in-between steps the corners go dark too, so the light between the spokes breaks into short blades instead of hooked arms */
   reel(10);reel(45);                                                                     /* the reels turn while it plays */
   Rr(12,26,32,7,K);Rr(13,27,30,6,S2);Rr(13,26,30,1,K);                                   /* the notch */
   Rr(18,29,2,2,K);Rr(36,29,2,2,K);Rr(25,28,2,2,K);Rr(29,28,2,2,K);
   [[2,2],[53,2],[2,30],[53,30],[28,31]].forEach(([x,y])=>P(x,y,SC));                    /* screws */
   const dots=[];for(let y=0;y<9;y++)for(let x=0;x<20;x++){const fx=x-3,fy=y-1,ch=fy>=0&&fy<FACE.length&&fx>=0&&fx<14?FACE[fy][fx]:'.';
     dots.push([18+x+.5,13+y+.5,ch==='.'||ch==='o'||ch==='m'?null:ch==='s'?'#8774b8':ch==='p'?'#e064c0':'#f1e7cf']);}
-  return {W2,H2,cells,dots,K};}
+  return {W2,H2,cells,dots,K:sh.ink};}
 function cassetteSVG(tp,phase){const {W2,H2,cells,dots,K}=cassettePix(tp,phase);
   let o='';for(let y=0;y<H2;y++)for(let x=0;x<W2;x++){const v=cells[y*W2+x];if(v)o+=`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${v}"/>`;}
   let led='';dots.forEach(([x,y,c])=>{led+=c?`<circle cx="${x}" cy="${y}" r=".43" fill="${c}"/>`:`<circle cx="${x}" cy="${y}" r=".16" fill="#2a2a30"/>`;});
   const nm=tp.n.toUpperCase().replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   return `<svg viewBox="0 0 ${W2} ${H2}" aria-hidden="true"><defs><filter id="mtg" x="-1" y="-1" width="3" height="3"><feGaussianBlur stdDeviation=".25" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><g shape-rendering="crispEdges">${o}</g><g filter="url(#mtg)">${led}</g><text x="28" y="8.6" text-anchor="middle" font-family="Doto,monospace" font-weight="900" font-size="${nm.length>16?3.1:3.8}" fill="${K}">${nm}</text></svg>`;}
 const mt=document.createElement('section');mt.className='mixtape';mt.id='mixtape';mt.hidden=true;mt.setAttribute('aria-label','Mixtape');
-const segHTML=(key,label,opts)=>`<div class="mt-row"><span class="mt-lab">${label}</span><div class="mt-seg" role="group" aria-label="${label}">${opts.map((o,i)=>`<button type="button" data-k="${key}" data-v="${i}">${o}</button>`).join('')}</div></div>`;
-mt.innerHTML=`<header class="mt-head"><h3>MIXTAPE</h3><p class="mt-sub"></p><button class="icon mt-x" type="button" aria-label="Close the mixtape deck" title="Close">✕</button></header>
-<div class="mt-build"><div class="mt-body"><div class="mt-left"><div class="mt-cass"></div>
-<label class="mt-field"><span class="mt-lab">Name your tape</span><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false"></label>
-<div class="mt-row"><span class="mt-lab">Label</span><div class="mt-sw" role="group" aria-label="Label colour">${TAPE_COLORS.map((c,i)=>`<button type="button" data-c="${i}" style="--c:${c}" aria-label="Label colour ${i+1}"></button>`).join('')}</div></div>
-<button class="btn tonal mt-roll" type="button" title="Pick a random recipe, then tweak it"><svg viewBox="0 0 8 8" aria-hidden="true"><path d="M1 0h6v1h1v6h-1v1H1v-1H0V1h1zM2 2v1h1V2zm3 0v1h1V2zM2 5v1h1V5zm3 0v1h1V5z"/></svg>Roll tape</button>
-</div>
-<div class="mt-right">${segHTML('v','Vibe',VIBES)}${segHTML('m','Mood',MOODS)}${segHTML('g','Groove',GROOVES)}${segHTML('s','Sound',RECS)}${segHTML('w','Weather',WEATHERS)}
-<div class="mt-actions"><button class="btn filled mt-make" type="button">Make tape</button><span class="mt-note" aria-live="polite"></span><button type="button" class="mt-lk mt-del">Delete tape</button><button type="button" class="mt-lk mt-link" hidden>Copy link</button></div></div></div></div>
-<div class="mt-done" hidden><div class="mt-big"></div><div class="mt-info">
+/* Under the radio: the tape deck. Normally it shows what's on as a big cassette (a station gets its own cassette,
+   your tape its own), reels turning while it plays, with what you can do with it. MAKE A MIXTAPE slides the
+   cassette into the deck: START WITH picks the groove (drums, tempo, feel); BASS, KEYS and OUTSIDE are the layers
+   (lit = playing, unlit = available, tap a lit one to take it out). SAVE TAPE names it and pops it back out. */
+const ROWS=[{k:'b',name:'Bass',opts:[[1,'Warm'],[2,'Deep'],[3,'Synth']]},{k:'k',name:'Keys',opts:[[1,'Rhodes'],[3,'Pad'],[4,'8-bit']],extra:[[2,'Guitar']]},{k:'w',name:'Outside',opts:[[1,'Rain'],[4,'Purr'],[3,'Fire']],extra:[[2,'Ocean']]}];
+/* each station has its own cassette and a line about it */
+const STATION_TAPE={'gen:late':[1,'Warm Rhodes and a lazy beat. Built for working late.'],'gen:window':[2,'Soft keys, a little melody, rain on the glass. Study mode.'],'gen:crt':[6,'Analog pads, slow arpeggios, a few blips. The synthy one.'],'gen:sunday':[0,'Jazz chords, brushes and a purr underneath. Zero urgency.'],'gen:desert':[5,'Slow pads, far-off bells and crickets. Wind-down mode.'],
+  'gen:purr':[3,'Just Loafie, purring.'],'gen:rain':[2,'Rain on the window. Nothing else.'],'gen:waves':[2,'Slow waves on a quiet beach.'],'gen:fire':[4,'A low fire, crackling now and then.'],'gen:brown':[6,'Brown noise. Soft, steady, nothing to notice.']};
+mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><button class="icon mt-x" type="button" aria-label="Done mixing" title="Done mixing">✕</button></header>
+<div class="mt-now"><div class="mt-left"><button type="button" class="mt-big"></button></div><div class="mt-info">
 <p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
-<div class="mt-acts"><button class="btn filled mt-share" type="button">Share</button><button class="btn tonal mt-edit" type="button">Edit</button><button class="btn filled mt-play" type="button">Play</button><button class="btn filled mt-keep" type="button">Keep this tape</button></div>
-<p class="mt-note2" aria-live="polite"></p>
-<p class="mt-links"><button type="button" class="mt-lk mt-again">New tape</button><button type="button" class="mt-lk mt-card">Save as picture</button></p></div></div>`;
-face.after(mt);
+<div class="mt-renamebox" hidden><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false" aria-label="Tape name"><button type="button" class="hw mt-renamedone">OK</button></div>
+<div class="mt-acts"><button class="hw mt-play" type="button">PLAY</button><button class="hw mt-make" type="button">MAKE A MIXTAPE</button><button class="hw mt-savedraft" type="button">SAVE TAPE</button><button class="hw mt-keepmixing" type="button">KEEP MIXING</button><button class="hw mt-share" type="button">SHARE</button><button class="hw mt-rename" type="button">RENAME</button><button class="hw mt-edit" type="button">CHANGE MIX</button><button class="hw mt-keep" type="button">KEEP THIS TAPE</button></div>
+<p class="mt-hint"></p><p class="mt-note2" aria-live="polite"></p>
+<p class="mt-links"><button type="button" class="mt-lk mt-again">Make your own</button><button type="button" class="mt-lk mt-card">Save as picture</button><button type="button" class="mt-lk mt-del">Delete tape</button></p></div></div>
+<div class="mt-build" hidden>
+<div class="mt-left"><div class="mt-well"><button type="button" class="mt-cass" aria-label="Tap for another cassette" title="Tap for another cassette"></button></div>
+<div class="mt-seq" aria-hidden="true"><div class="mt-seqhead"><span class="mt-print">PATTERN</span><span class="mt-readout" id="mtReadout"></span></div>
+<div class="mt-grid" id="mtGrid">${['BD','SD','HH','BS','KY'].map(ch=>`<div class="mt-ch" data-ch="${ch.toLowerCase()}"><span>${ch}</span>${Array.from({length:16},(_,i)=>`<i data-s="${i}"></i>`).join('')}</div>`).join('')}</div>
+<div class="mt-run" id="mtRun">${Array.from({length:16},(_,i)=>`<i class="c${i>>2}"></i>`).join('')}</div></div></div>
+<div class="mt-right">
+<div class="mt-hwrow mt-start"><div class="mt-rowhead"><span class="mt-print">START WITH</span><button type="button" class="hw mt-reroll" title="Same layers, a different tune">NEW TUNE ↻</button></div><div class="mt-keys mt-presets" role="group" aria-label="Start with">${BASES.map((b,i)=>`<button type="button" class="hw" data-base="${i}">${b[0].toUpperCase()}</button>`).join('')}</div></div>
+${ROWS.map(R=>`<div class="mt-hwrow" data-l="${R.k}"><span class="mt-print">${R.name.toUpperCase()}</span><div class="mt-keys" role="group" aria-label="${R.name}"></div></div>`).join('')}
+<div class="mt-rec"><span class="mt-print"><b class="mt-led"></b> REC</span><button type="button" class="hw hw-big mt-save">SAVE TAPE</button></div>
+</div></div>
+<p class="mt-model">LOAF FM · RHYTHM COMPOSER LF-83 · COMPUTER CONTROLLED</p>`;
+mt.hidden=!!BC;face.after(mt);
 const mtQ=sel=>mt.querySelector(sel);
 function mtIsSaved(){return !!(mtTape&&mtTape.id&&S.tapes.includes(mtTape));}
 function mtId(){return mtIsSaved()?'tape:'+mtTape.id:'tape:draft';}
-let mtView='build',draftIn=false; /* draftIn: the unsaved tape came from someone's link */
-function paintMixtape(){if(!mtTape)return;const tp=mtTape,saved=mtIsSaved(),done=mtView==='done';
-  mtQ('.mt-build').hidden=done;mtQ('.mt-done').hidden=!done;
-  mtQ('.mt-sub').textContent=done?(saved?'':'Someone sent you this tape.'):(saved?'Changes save as you go.':'Pick a vibe, a mood and a groove. You’ll hear each choice right away.');
-  if(done){mtQ('.mt-big').innerHTML=cassetteSVG(tp,mtPhase);mtQ('.mt-title').textContent=tp.n;mtQ('.mt-freq').textContent=(tp.f/10).toFixed(1)+' FM';
-    mtQ('.mt-recipe').textContent=[VIBES[tp.v],MOODS[tp.m],GROOVES[tp.g],RECS[tp.s]].concat(tp.w?[WEATHERS[tp.w]]:[]).join(' · ');
-    const on=gen&&gen.id===mtId();mtQ('.mt-play').textContent=on?'Stop':'Play';mtQ('.mt-play').setAttribute('aria-pressed',String(!!on));
-    mtQ('.mt-share').hidden=!saved;mtQ('.mt-edit').hidden=!saved;mtQ('.mt-play').hidden=saved;mtQ('.mt-keep').hidden=saved;mtQ('.mt-card').hidden=!saved;mtQ('.mt-again').textContent=saved?'New tape':'Make your own';
-    if(saved)queueCard();}
-  else{mtQ('.mt-cass').innerHTML=cassetteSVG(tp,mtPhase);if(document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=tp.n;
-    mt.querySelectorAll('.mt-seg button').forEach(b=>b.setAttribute('aria-pressed',String(tp[b.dataset.k]===+b.dataset.v)));
-    mt.querySelectorAll('.mt-sw button').forEach(b=>b.setAttribute('aria-pressed',String(tp.c===+b.dataset.c)));
-    mtQ('.mt-make').textContent=saved?'Done':'Make tape';mtQ('.mt-del').hidden=!saved;
-    mtQ('.mt-note').textContent=saved?'':'It’s playing as you go. Make the tape to keep it and share it.';}}
-function mtShow(v){mtView=v;mtQ('.mt-note2').textContent='';paintMixtape();}
-window.__mtPaint=()=>{if(!mt.hidden&&mtView==='done'&&mtTape){const on=gen&&gen.id===mtId();mtQ('.mt-play').textContent=on?'Stop':'Play';mtQ('.mt-play').setAttribute('aria-pressed',String(!!on));}}; /* keeps Play/Stop right when the radio changes elsewhere */
-/* hear a change: small ones adjust the running music, bigger ones re-cut the tape with a short fade */
+let mtView='now',draftIn=false,delArm=0,renaming=false;
+const BEAT_NAME=d=>d?['Soft','Lo-fi','House'][d-1]+' beat':'';
+function tapeRecipe(tp){const keys=tp.k?(tp.k===4?'8-bit keys':KEYS[tp.k-1]):null;return [tp.i?BASES[tp.s][0]:BEAT_NAME(tp.d),tp.b?BASSES[tp.b-1]+' bass':null,keys,tp.w?OUTSIDE[tp.w-1]:null].filter(Boolean).join(' · ');}
+function autoName(tp){const d=new Date(),day=DAYNAME[d.getDay()],h=d.getHours(),when=h>=20||h<5?' Night':h<12?' Morning':'';
+  const adj=tp.w?['Rainy','Seaside','Fireside','Purring'][tp.w-1]:tp.b?['Warm','Deep','Neon'][tp.b-1]:tp.k?['Velvet','Easy','Hazy','Pixel'][tp.k-1]:'Quiet';
+  const n=adj+' '+day+when;return n.length<=24?n:adj+' '+day;}
+function isAuto(tp){return /^(My|Untitled) mixtape$/.test(tp.n);}
+function shownTape(tp){return isAuto(tp)?Object.assign({},tp,{n:autoName(tp)}):tp;}
+/* what the deck is showing right now: a station, your tape, a friend's tape, or your unsaved mix */
+function nowItem(){const tp=tapeOf(S.station);
+  if(tp){mtTape=tp;const kind=tp===draft?(draftIn?'friend':'draft'):'saved';return {kind,tape:shownTape(tp),id:S.station};}
+  const st=[...MUSIC,...CALM].find(s=>s.id===S.station)||MUSIC[0],[c,desc]=STATION_TAPE[st.id]||[1,''];
+  return {kind:'station',tape:{n:st.name,c,f:Math.round(parseFloat(FREQ[st.id]||'88.3')*10)},desc,id:st.id};}
+const onAir=id=>!!gen&&gen.id===id&&playing();
+function paintMixtape(){if(BC)return;const build=mtView==='build'&&!!mtTape;mt.classList.toggle('building',build);document.documentElement.classList.toggle('mt-open',build);
+  mtQ('.mt-now').hidden=build;mtQ('.mt-build').hidden=!build;mtQ('.mt-x').hidden=!build;
+  if(build){const tp=mtTape,saved=mtIsSaved();mtQ('.mt-where').textContent='MIXTAPE · SIDE A';
+    mtQ('.mt-cass').innerHTML=cassetteSVG(shownTape(tp),mtPhase); /* the tape you're making, labelled with the name it'll get */
+    mt.querySelectorAll('.mt-presets button').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.base===tp.s)));
+    for(const R of ROWS){const opts=R.opts.concat((R.extra||[]).filter(([v])=>tp[R.k]===v));
+      mtQ(`.mt-hwrow[data-l="${R.k}"] .mt-keys`).innerHTML=opts.map(([v,lab])=>`<button type="button" class="hw" data-l="${R.k}" data-v="${v}" aria-pressed="${tp[R.k]===v}">${lab.toUpperCase()}</button>`).join('');}
+    mtQ('.mt-save').textContent=saved?'DONE':'SAVE TAPE';mtQ('.mt-led').classList.toggle('on',onAir(mtId()));return;}
+  const it=nowItem(),on=onAir(it.id),k=it.kind,show=(c,v)=>{mtQ(c).hidden=!v;};
+  mtQ('.mt-where').textContent=(on?'NOW PLAYING':'READY')+(k==='saved'?' · YOUR TAPE':k==='friend'?' · FROM A FRIEND':k==='draft'?' · NOT SAVED':'');
+  const big=mtQ('.mt-big');big.innerHTML=cassetteSVG(it.tape,mtPhase);const cyc=k==='saved'||k==='draft';big.classList.toggle('cycles',cyc);
+  if(cyc){big.setAttribute('aria-label','Tap for another cassette');big.title='Tap for another cassette';}else{big.removeAttribute('aria-label');big.removeAttribute('title');}
+  mtQ('.mt-title').textContent=it.tape.n;mtQ('.mt-freq').textContent=(it.tape.f/10).toFixed(1)+' FM';mtQ('.mt-recipe').textContent=k==='station'?it.desc:tapeRecipe(it.tape);
+  /* the one big orange key is whatever you'd most likely do next */
+  show('.mt-play',!on);mtQ('.mt-play').textContent='PLAY';
+  show('.mt-make',k==='station');show('.mt-savedraft',k==='draft');show('.mt-keepmixing',k==='draft');show('.mt-share',k==='saved');show('.mt-rename',k==='saved');show('.mt-edit',k==='saved');show('.mt-keep',k==='friend');
+  const primary=!on?'.mt-play':k==='station'?'.mt-make':k==='saved'?'.mt-share':k==='draft'?'.mt-savedraft':'.mt-keep';
+  mt.querySelectorAll('.mt-acts .hw').forEach(b=>b.classList.toggle('hw-big',b.matches(primary)));
+  mtQ('.mt-hint').textContent=k==='station'?'Start from '+it.tape.n+', stack a layer or two, save the tape.':'';
+  show('.mt-again',k==='friend'||k==='saved');mtQ('.mt-again').textContent=k==='saved'?'New tape':'Make your own';show('.mt-card',k==='saved');show('.mt-del',k==='saved');
+  mtQ('.mt-renamebox').hidden=!(renaming&&k==='saved');if(renaming&&document.activeElement!==mtQ('.mt-name'))mtQ('.mt-name').value=it.tape.n;
+  mtQ('.mt-del').textContent=delArm>Date.now()?'Tap again to delete':'Delete tape';if(k==='saved')queueCard();}
+function mtShow(v){mtView=v;renaming=false;delArm=0;mtQ('.mt-note2').textContent='';paintMixtape();}
+window.__mtPaint=paintMixtape;window.__mtStation=id=>{if(mtView==='build'&&id!=='tape:draft'&&!(mtTape&&id==='tape:'+mtTape.id))mtShow('now');else paintMixtape();}; /* play/stop, station changes: the deck follows the radio */
+/* hear a change: the tape re-cuts with a quick crossfade */
 let mtRecut=null;
-function mtApply(structural){const id=mtId();if(mtIsSaved())save();else keepDraft();S.stationName=mtTape.n;dirty=true;
-  if(gen&&gen.id===id){if(structural){clearTimeout(mtRecut);mtRecut=setTimeout(()=>{if(S.station===id&&gen&&gen.id===id)genStart(id,.35);},structural==='slow'?1100:90);}else if(gen.snd&&gen.snd.update)gen.snd.update(mtTape);}
+function mtApply(structural){const id=mtId();if(mtIsSaved())save();else keepDraft();S.stationName=shownTape(mtTape).n;dirty=true;
+  if(gen&&gen.id===id){if(structural){clearTimeout(mtRecut);mtRecut=setTimeout(()=>{if(S.station===id&&gen&&gen.id===id)genStart(id,.35);},60);}}
+  else if(structural&&S.station===id)playRadio();
   fillStations();paintMixtape();}
-function newDraft(from){draftIn=false;draft=cleanTape(from);mtTape=draft;keepDraft();setStation({id:'tape:draft',name:draft.n});if(!gen)playRadio();}
-function openMixtape(edit){const cur=tapeOf(S.station);mtView='build';
-  if(edit&&cur){mtTape=cur;if(cur!==draft||draftIn)mtView='done';}
-  else if(draft&&S.station==='tape:draft'){mtTape=draft;if(draftIn)mtView='done';}
-  else{const FROM={'gen:late':{v:0,m:2,g:1,s:1,w:0},'gen:window':{v:0,m:1,g:0,s:1,w:1},'gen:crt':{v:4,m:1,g:1,s:0,w:0},'gen:sunday':{v:1,m:0,g:1,s:2,w:4},'gen:desert':{v:3,m:2,g:0,s:0,w:0},
-      'gen:rain':{w:1},'gen:waves':{w:2},'gen:fire':{w:3},'gen:purr':{w:4}}; /* start from something close to what was playing */
-    newDraft(Object.assign({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),v:1,m:0,g:1,s:2,w:0},FROM[S.station]||{}));}
-  mt.hidden=false;if(!S.mtSeen)seenMixtape();paintMixtape();startSpin();paintMixKey();mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
-function closeMixtape(){mt.hidden=true;stopSpin();paintMixKey();}
-const mixKey=$('mixKey');function paintMixKey(){mixKey.setAttribute('aria-pressed',String(!mt.hidden));mixKey.title=mt.hidden?'Make a mixtape':'Close the mixtape deck';mixKey.classList.toggle('pulse',!S.mtSeen&&mt.hidden);}
-/* first visit: a little cassette teaser under the controls, until they open the deck or wave it away */
-function seenMixtape(){if(!S.mtSeen){S.mtSeen=1;save();}teaser.hidden=true;stopTeaser();paintMixKey();}
-const teaser=document.createElement('div');teaser.className='mt-teaser';teaser.hidden=true;
-const teaserTape={n:"Loafie's mixtape",c:Math.floor(Math.random()*TAPE_COLORS.length)};let teaserT=null,teaserPh=0;
-teaser.innerHTML=`<div class="mt-tz-cass" aria-hidden="true"></div><p><strong>Make a mixtape.</strong> <span>Pick a band, a mood and a groove, name it, send it to someone.</span></p><button class="btn filled mt-tz-go" type="button">Make one</button><button class="icon mt-tz-x" type="button" aria-label="Hide this" title="Hide">✕</button>`;
-mt.before(teaser);
-function drawTeaser(){teaser.querySelector('.mt-tz-cass').innerHTML=cassetteSVG(teaserTape,teaserPh);}
-function stopTeaser(){clearInterval(teaserT);teaserT=null;}
-teaser.querySelector('.mt-tz-go').addEventListener('click',()=>{seenMixtape();openMixtape(false);});
-teaser.querySelector('.mt-tz-x').addEventListener('click',seenMixtape);
-if(!BC&&!S.mtSeen&&!new URLSearchParams(location.search).get('tape')){teaser.hidden=false;drawTeaser();if(!matchMedia('(prefers-reduced-motion: reduce)').matches)teaserT=setInterval(()=>{teaserPh++;drawTeaser();},450);}
-paintMixKey();
-mixKey.addEventListener('click',()=>{if(!mt.hidden){closeMixtape();return;}seenMixtape();openMixtape(!!tapeOf(S.station));});
-function startSpin(){stopSpin();mtSpin=setInterval(()=>{if(mt.hidden||!mtTape)return;if(gen&&gen.id===mtId()){mtPhase=(mtPhase+1)%8;mtQ(mtView==='done'?'.mt-big':'.mt-cass').innerHTML=cassetteSVG(mtTape,mtPhase);}},260);} /* the reels turn while the tape plays */
+/* a starting track sets the groove and the keys; the bass and the outside you've added stay */
+function loadBase(i,tp){const B=BASES[i][1];Object.assign(tp,{d:B.d,k:B.k,p:B.p,s:i});if(!tp.b)tp.b=B.b;if(tp.w==null)tp.w=0;}
+/* the deck starts from whatever was on the radio, so it already sounds familiar */
+const SEED={'gen:late':[0,0],'gen:window':[0,1],'gen:crt':[3,0],'gen:sunday':[0,4],'gen:desert':[2,0],'gen:purr':[0,4],'gen:rain':[0,1],'gen:waves':[2,2],'gen:fire':[0,3],'gen:brown':[2,0]};
+function seedFrom(id){const tp=tapeOf(id);if(tp)return [tp.i?tp.s:0,tp.w];return SEED[id]||[0,0];}
+function newDraft(seed){const [s0,w0]=seed,tp={n:'My mixtape',c:Math.floor(Math.random()*SHELLS.length),e:5,i:1,w:w0,b:0,r:1+Math.floor(Math.random()*2147483646)};loadBase(s0,tp);draftIn=false;draft=cleanTape(tp);mtTape=draft;keepDraft();setStation({id:'tape:draft',name:shownTape(draft).n});if(!gen)playRadio();else if(actx&&actx.state!=='running')actx.resume();}
+/* into the deck: a new tape from what's on, or the tape you're showing */
+function openMixtape(){const cur=tapeOf(S.station);
+  if(cur&&!(cur===draft&&draftIn))mtTape=cur;else newDraft(seedFrom(S.station));
+  if(!gen)playRadio();mtShow('build');seqStart();
+  if(matchMedia('(max-width:700px)').matches)unit.scrollIntoView({block:'start',behavior:'smooth'});else mt.scrollIntoView({block:'nearest',behavior:'smooth'});}
+function closeMixtape(){mtShow('now');}
+/* the reels step round while that tape is the one playing */
+function spinTick(){if(mt.hidden||document.hidden||RM.matches)return;const build=mtView==='build'&&mtTape,id=build?mtId():nowItem().id;if(!onAir(id))return;mtPhase=(mtPhase+1)%4;
+  if(build)mtQ('.mt-cass').innerHTML=cassetteSVG(shownTape(mtTape),mtPhase);else mtQ('.mt-big').innerHTML=cassetteSVG(nowItem().tape,mtPhase);}
+function startSpin(){stopSpin();if(!BC)mtSpin=setInterval(spinTick,330);}
+/* the pattern display: the current bar's hits on a 5×16 grid (what the engine has already scheduled, like a programmed
+   pattern), a running light stepping through the 16ths in 808 colours, and a tempo / bar readout */
+const seqCells=[...mt.querySelectorAll('.mt-grid i')],runLeds=[...mt.querySelectorAll('.mt-run i')],readout=$('mtReadout');let seqRaf=0,seqLast='';
+function seqFrame(){seqRaf=0;if(mt.hidden||mtView!=='build'||!mtTape)return;seqRaf=requestAnimationFrame(seqFrame);
+  const g=gen,snd=g&&g.snd,on=!!snd&&snd.tStart!=null&&g.id===mtId()&&playing();
+  if(!on){if(seqLast!=='off'){seqLast='off';seqCells.forEach(c=>c.className='');runLeds.forEach(l=>l.classList.remove('on'));readout.textContent='STOPPED';}return;}
+  const now=actx.currentTime,barDur=snd.barDur,b0=snd.tStart+Math.floor((now-snd.tStart)/barDur)*barDur,stp=Math.floor(((now-b0)/barDur)*16)%16,barN=Math.floor((now-snd.tStart)/barDur)+1;
+  const key=b0.toFixed(2)+':'+stp;if(key===seqLast)return;seqLast=key;
+  const grid={bd:0,sd:0,hh:0,bs:0,ky:0};const mark=(ch,t)=>{if(t>=b0-.01&&t<b0+barDur-.01){const i=Math.max(0,Math.min(15,Math.round((t-b0)/barDur*16)))%16;grid[ch]|=1<<i;}};
+  for(let i=0;i<snd.hits.length;i+=2)mark(snd.hits[i],snd.hits[i+1]);for(let i=0;i<keyHits.length;i+=2)mark('ky',keyHits[i]);
+  seqCells.forEach(c=>{const ch=c.parentNode.dataset.ch,i=+c.dataset.s,hit=!!(grid[ch]>>i&1);c.className=(hit?'on':'')+(i===stp?' now':'');});
+  runLeds.forEach((l,i)=>l.classList.toggle('on',i===stp));
+  readout.textContent='TEMPO '+Math.round(snd.bpm)+' · BAR '+String(barN).padStart(3,'0')+' · STEP '+String(stp+1).padStart(2,'0');}
+function seqStart(){if(!seqRaf&&!RM.matches)seqRaf=requestAnimationFrame(seqFrame);}
 function stopSpin(){clearInterval(mtSpin);mtSpin=null;}
 mtQ('.mt-x').addEventListener('click',closeMixtape);
-mt.addEventListener('click',e=>{const b=e.target.closest('.mt-seg button');if(b&&mtTape){const k=b.dataset.k,v=+b.dataset.v;if(mtTape[k]===v)return;mtTape[k]=v;mtApply(k!=='s');}
-  const c=e.target.closest('.mt-sw button');if(c&&mtTape){mtTape.c=+c.dataset.c;mtApply(false);}});
-mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply('slow'),250);}); /* the name is the tune: a new name re-cuts the tape once you stop typing */
-function keepTape(){if(!mtTape)return;if(mtIsSaved()){mtShow('done');return;}
-  if(S.tapes.length>=TAPE_MAX){const m='You can keep '+TAPE_MAX+' mixtapes. Delete one to make room.';mtQ('.mt-note').textContent=m;mtQ('.mt-note2').textContent=m;return;}
-  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.draft=null;draftIn=false;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();mtShow('done');}
-mtQ('.mt-make').addEventListener('click',keepTape);mtQ('.mt-keep').addEventListener('click',keepTape);
-mtQ('.mt-edit').addEventListener('click',()=>mtShow('build'));
-mtQ('.mt-again').addEventListener('click',()=>{const tp=mtTape||{};newDraft({n:'My mixtape',c:Math.floor(Math.random()*TAPE_COLORS.length),v:tp.v,m:tp.m,g:tp.g,s:tp.s,w:tp.w});mtShow('build');mtQ('.mt-name').focus();mtQ('.mt-name').select();});
-mtQ('.mt-play').addEventListener('click',()=>{if(!mtTape)return;const id=mtId();if(gen&&gen.id===id)stopRadio();else{if(S.station!==id)setStation({id,name:mtTape.n});if(!gen)playRadio();}paintMixtape();});
-mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;closeMixtape();
-  if(S.station===id){const was=!!gen;S.station='gen:purr';S.stationName='Purr';if(was){genStop(false);setTimeout(()=>genStart('gen:purr'),500);}}save();fillStations();});
+mt.addEventListener('click',e=>{
+  if(e.target.closest('.mt-big.cycles')&&mtTape){mtTape.c=(mtTape.c+1)%SHELLS.length;mtApply(false);return;} /* tap your tape for another shell */
+  if(mtView!=='build'||!mtTape)return;const tp=mtTape;
+  const pb=e.target.closest('.mt-presets button');if(pb){const i=+pb.dataset.base;loadBase(i,tp);if(!tp.i){tp.i=1;}autoPalette(i);mtApply(true);return;} /* only an explicit pick changes the display */
+  if(e.target.closest('.mt-cass')){tp.c=(tp.c+1)%SHELLS.length;mtApply(false);return;}
+  if(e.target.closest('.mt-reroll')){tp.r=1+Math.floor(Math.random()*2147483646);mtApply(true);return;} /* a new seed: new key, mood, chords and hook; the layers and the name stay */
+  const kb=e.target.closest('.mt-keys button[data-l]');if(kb){const k=kb.dataset.l,v=+kb.dataset.v;tp[k]=tp[k]===v?0:v;mtApply(true);}}); /* lit: take it out; unlit: put it in */
+function keepTape(){if(!mtTape)return;if(mtIsSaved()){mtShow('now');return;}
+  if(S.tapes.length>=TAPE_MAX){const i=S.tapes.findIndex(t=>'tape:'+t.id!==S.station);if(i>=0)S.tapes.splice(i,1);} /* never refuse a save: the oldest tape makes room */
+  const playing=gen&&gen.id==='tape:draft';mtTape.id=Date.now().toString(36);S.tapes.push(mtTape);draft=null;S.draft=null;draftIn=false;S.station='tape:'+mtTape.id;S.stationName=mtTape.n;if(playing)gen.id=S.station;save();fillStations();mtShow('now');}
+/* SAVE TAPE: it names itself (after the outside, the bass or the keys, and the day) and pops out big, in the shell you've been watching */
+function saveDraft(){if(!mtTape)return;if(!mtIsSaved()&&isAuto(mtTape))mtTape.n=autoName(mtTape);keepTape();}
+mtQ('.mt-save').addEventListener('click',saveDraft);
+mtQ('.mt-savedraft').addEventListener('click',()=>{mtTape=draft;saveDraft();});
+mtQ('.mt-keepmixing').addEventListener('click',()=>{mtTape=draft;mtShow('build');seqStart();});
+mtQ('.mt-make').addEventListener('click',openMixtape);
+mtQ('.mt-keep').addEventListener('click',()=>{mtTape=draft;keepTape();});
+mtQ('.mt-rename').addEventListener('click',()=>{renaming=!renaming;paintMixtape();if(renaming){const i=mtQ('.mt-name');i.focus();i.select();}});
+mtQ('.mt-name').addEventListener('input',e=>{if(!mtTape)return;mtTape.n=e.target.value.replace(/[\u0000-\u001f<>]/g,'').slice(0,24)||'Untitled mixtape';mtQ('.mt-title').textContent=mtTape.n;mtQ('.mt-big').innerHTML=cassetteSVG(mtTape,mtPhase);clearTimeout(e.target._t);e.target._t=setTimeout(()=>mtApply(false),250);}); /* just the name: the music stays exactly as it is */
+mtQ('.mt-name').addEventListener('keydown',e=>{if(e.key==='Enter')mtQ('.mt-renamedone').click();});
+mtQ('.mt-renamedone').addEventListener('click',()=>{renaming=false;mtApply(false);});
+mtQ('.mt-edit').addEventListener('click',()=>{const tp=tapeOf(S.station);if(tp){mtTape=tp;if(!gen)playRadio();mtShow('build');seqStart();}});
+mtQ('.mt-again').addEventListener('click',()=>{const tp=tapeOf(S.station);newDraft([tp&&tp.i?tp.s:0,tp?tp.w:0]);mtShow('build');seqStart();});
+mtQ('.mt-play').addEventListener('click',()=>{if(gen&&actx&&actx.state!=='running'){actx.resume().then(paintKeys,()=>{});return;}if(!gen)playRadio();paintKeys();});
+mtQ('.mt-del').addEventListener('click',()=>{if(!mtIsSaved())return;if(delArm<Date.now()){delArm=Date.now()+4000;paintMixtape();setTimeout(()=>{if(delArm&&delArm<=Date.now()){delArm=0;paintMixtape();}},4100);return;} /* asks once: tap again to delete */
+  delArm=0;const id='tape:'+mtTape.id;S.tapes=S.tapes.filter(t=>t!==mtTape);mtTape=null;
+  if(S.station===id){const was=!!gen;S.station='gen:late';S.stationName='Late Shift';if(was){genStop(false);setTimeout(()=>genStart('gen:late'),500);}}save();fillStations();mtShow('now');});
+setTimeout(()=>{paintMixtape();startSpin();},0); /* after the rest of the page code has loaded (the share card lives further down) */
 async function copyTapeLink(b,label){if(!mtTape)return;const url=tapeURL(mtTape);let ok=false;try{await navigator.clipboard.writeText(url);ok=true;}catch(e){}
-  b.textContent=ok?'Link copied':'Copy failed';mtQ('.mt-note2').textContent=ok?'Paste it anywhere. Whoever opens it hears your tape.':url;setTimeout(()=>b.textContent=label,1800);}
-mtQ('.mt-link').addEventListener('click',e=>copyTapeLink(e.currentTarget,'Copy link'));
-/* ROLL TAPE: a random recipe that still sounds like Loaf FM, then tweak it from there */
-const RN={a:['Rainy','Sleepy','Midnight','Sunday','Velvet','Dusty','Neon','Quiet','Lazy','Foggy','Late','Tiny','Soft','Static','Moonlit','Cozy','Slow','Hazy','Blue','Golden','Drowsy','Purring'],
-  n:['Loaf','Window','Radiator','Bus Ride','Laundromat','Kitchen','Box','Sunbeam','Hallway','Diner','Parking Lot','Couch','Tuesday','Library','Fish Market','Rooftop','Basement','Porch','Night Train','Motel','Bakery','Arcade','Blanket','Nap','Bodega','Car Wash'],
-  t:['2AM','3AM','Dusk','Dawn','Noon','Last Call','Closing Time','Low Tide','Midnight']};
-const rp=a=>a[Math.floor(Math.random()*a.length)],rr=(lo,hi)=>Math.round(lo+Math.random()*(hi-lo));
-function rollName(){const r=Math.random(),A=rp(RN.a),N=rp(RN.n);const s=r<.4?A+' '+N:r<.65?N+' at '+rp(RN.t):r<.78?A+' '+N+' Blues':r<.9?'Songs for a '+A+' '+N:'Loafie’s '+A+' '+N;return s.length<=24?s:A+' '+N;}
-let rolledName='';
-function rollRecipe(){return {v:rr(0,4),m:rr(0,2),g:rp([0,1,1,2]),s:rp([0,1,1,2,2,3]),w:rp([0,0,1,1,2,3,4]),c:rr(0,TAPE_COLORS.length-1)};}
-mtQ('.mt-roll').addEventListener('click',()=>{if(!mtTape)return;const r=rollRecipe(),keepName=mtTape.n&&!/^(My|Untitled) mixtape$/.test(mtTape.n)&&mtTape.n!==rolledName;
-  r.n=keepName?mtTape.n:(rolledName=rollName());
-  if(mtIsSaved()){ /* a saved tape stays as it was; the roll starts a new, unsaved one */
-    newDraft(r);fillStations();paintMixtape();}
-  else{Object.assign(mtTape,r);if(S.station!=='tape:draft')setStation({id:'tape:draft',name:mtTape.n});mtApply(true);if(!gen)playRadio();}
-  const b=mtQ('.mt-roll');b.classList.remove('rolled');void b.offsetWidth;b.classList.add('rolled');});
+  b.textContent=ok?'LINK COPIED':'COPY FAILED';mtQ('.mt-note2').textContent=ok?'Paste it anywhere. Whoever opens it hears your tape. It’s also your backup.':url;setTimeout(()=>b.textContent=label,1800);}
 /* the share card: the tape, its spot on the dial, the board and Loafie, as a PNG to post or send.
    Link previews can't show a mixtape (crawlers don't run the page), so a picture does that job. */
 const tapeURL=tp=>location.origin+location.pathname.replace(/[^/]*$/,'')+'?tape='+encodeTape(tp);
 async function tapeCard(tp,opt){opt=opt||{};try{await Promise.all(['900 40px Doto','700 40px Doto','500 24px "IBM Plex Sans"'].map(f=>document.fonts.load(f)));}catch(e){}
-  const W0=1200,H0=630,c=document.createElement('canvas');c.width=W0;c.height=H0;const g=c.getContext('2d'),lab=TAPE_COLORS[tp.c];
+  const W0=1200,H0=630,c=document.createElement('canvas');c.width=W0;c.height=H0;const g=c.getContext('2d'),lab=(SHELLS[tp.c]||SHELLS[0]).acc;
   g.fillStyle='#0b0b0e';g.fillRect(0,0,W0,H0);g.fillStyle='rgba(255,255,255,.035)';for(let y=15;y<H0;y+=22)for(let x=15;x<W0;x+=22)g.fillRect(x-1,y-1,2,2);
   const P=cassettePix(tp,0),u=10,X0=56,Y0=Math.round((H0-P.H2*u)/2)-24;
   g.fillStyle='rgba(0,0,0,.45)';g.fillRect(X0+10,Y0+14,P.W2*u,P.H2*u);
@@ -795,7 +914,7 @@ async function tapeCard(tp,opt){opt=opt||{};try{await Promise.all(['900 40px Dot
   g.font='900 92px Doto, monospace';g.fillStyle=lab;g.shadowColor=lab;g.shadowBlur=22;g.fillText((tp.f/10).toFixed(1),RX-4,Y0+124);g.shadowBlur=0;
   const fw=g.measureText((tp.f/10).toFixed(1)).width;g.font='900 34px Doto, monospace';g.fillText('FM',RX+fw+10,Y0+124);
   const bh=Math.round(RW/4),dh=Math.round(RW*GH/W),by=Y0+P.H2*u-bh-dh-6;
-  if(opt.board!==false&&ledC.width){g.fillStyle='#050607';g.fillRect(RX-6,by-6,RW+12,bh+dh+18);g.drawImage(bgC,RX,by,RW,bh);g.drawImage(ledC,RX,by,RW,bh);g.drawImage(gbgC,RX,by+bh+6,RW,dh);g.drawImage(gledC,RX,by+bh+6,RW,dh);}
+  if(opt.board!==false&&ledC.width){g.fillStyle='#050607';g.fillRect(RX-6,by-6,RW+12,bh+dh+12);g.drawImage(bgC,RX,by,RW,bh);g.drawImage(ledC,RX,by,RW,bh);g.drawImage(gbgC,RX,by+bh,RW,dh);g.drawImage(gledC,RX,by+bh,RW,dh); /* one board, no gap */}
   g.font='500 24px "IBM Plex Sans", sans-serif';g.fillStyle='#a7a3ad';g.fillText(opt.tagline||'Pet cats and chill',X0,H0-50);
   g.textAlign='right';g.fillStyle=lab;g.fillText('loaffm.com',W0-56,H0-50);
   return new Promise(res=>c.toBlob(res,'image/png'));}
@@ -804,7 +923,7 @@ let tcBlob=null,tcKey='',tcT=null;
 function queueCard(){clearTimeout(tcT);tcT=setTimeout(async()=>{if(!mtTape||mt.hidden)return;const k=JSON.stringify(mtTape);const bl=await tapeCard(mtTape);if(mtTape&&JSON.stringify(mtTape)===k){tcBlob=bl;tcKey=k;}},700);}
 async function tapeCardNow(){const k=JSON.stringify(mtTape);if(tcBlob&&tcKey===k)return tcBlob;tcBlob=await tapeCard(mtTape);tcKey=k;return tcBlob;}
 const slug=n=>(n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'mixtape')+'-loaffm.png';
-mtQ('.mt-share').addEventListener('click',async e=>{if(!mtTape||!mtIsSaved())return;if(!navigator.share){copyTapeLink(e.currentTarget,'Share');return;}const url=tapeURL(mtTape),title=mtTape.n+' · Loaf FM',text='“'+mtTape.n+'”, a mixtape on Loaf FM ('+(mtTape.f/10).toFixed(1)+' FM).';
+mtQ('.mt-share').addEventListener('click',async e=>{if(!mtTape||!mtIsSaved())return;if(!navigator.share){copyTapeLink(e.currentTarget,'SHARE');return;}const url=tapeURL(mtTape),title=mtTape.n+' · Loaf FM',text='“'+mtTape.n+'”, a mixtape on Loaf FM ('+(mtTape.f/10).toFixed(1)+' FM).';
   let data={title,text,url};
   try{const bl=tcBlob&&tcKey===JSON.stringify(mtTape)?tcBlob:null;if(bl){const f=new File([bl],slug(mtTape.n),{type:'image/png'});if(navigator.canShare&&navigator.canShare({files:[f]}))data={title,text:text+' '+url,files:[f]};}}catch(e){}
   try{await navigator.share(data);}catch(e){if(e&&e.name==='AbortError')return;try{await navigator.share({title,text,url});}catch(e2){}}});
@@ -812,7 +931,7 @@ mtQ('.mt-card').addEventListener('click',async()=>{if(!mtTape)return;const b=mtQ
 window.loafCard=tapeCard; /* used to draw the site's own preview image */
 /* someone opened a mixtape link: load it as an unsaved tape, ready to play and keep */
 if(!BC&&new URLSearchParams(location.search).get('tape')){const tp=decodeTape(new URLSearchParams(location.search).get('tape'));
-  if(tp){if(draft&&S.tapes.length<TAPE_MAX&&JSON.stringify(draft)!==JSON.stringify(tp)){draft.id=Date.now().toString(36);S.tapes.push(draft);}draft=tp;keepDraft();S.station='tape:draft';S.stationName=tp.n;fillStations();openMixtape(false);draftIn=true;mtShow('done');say('Mixtape: press play');}
+  if(tp){if(draft&&JSON.stringify(draft)!==JSON.stringify(tp)){if(/^(My|Untitled) mixtape$/.test(draft.n))draft.n=autoName(draft);draft.id=Date.now().toString(36);S.tapes.push(draft);if(S.tapes.length>TAPE_MAX)S.tapes.shift();}draft=tp;keepDraft();S.station='tape:draft';S.stationName=tp.n;draftIn=true;fillStations();mtShow('now');}
   try{const u=new URL(location.href);u.searchParams.delete('tape');history.replaceState(history.state,'',u.pathname+u.search+u.hash);}catch(e){}}
 /* ================= Material colour scheme from the palette seed ================= */
 const lin=v=>{v/=255;return v<=.04045?v/12.92:Math.pow((v+.055)/1.055,2.4);};
@@ -836,40 +955,39 @@ function applyScheme(){const pp=PALETTES[S.palette]||PALETTES.crt;const seed=pp.
     '--on-surf':tone(t.onS,cn,h),'--on-surf-v':tone(t.onSv,cv,h),'--outline':tone(t.out,cv,h),'--outline-v':tone(t.outv,cv,h),'--inv':tone(t.inv,cn,h),'--on-inv':tone(t.onInv,cn,h)};
   /* in light mode the page is nearly pure white; the panel keeps a hint of the palette */
   if(pp.peg&&light){v['--surf-c']='#ecebe6';} /* Pegs in light mode: a putty-coloured case, like 80s electronics */
+  /* the case and the page: warm 80s electronics plastic in light mode, nearly-black stereo gear in dark; the palette only tints the accents */
+  Object.assign(v,light?{'--surf':'#f7f7f5','--surf-low':'#f1f1ee','--surf-c':'#ebebe8','--surf-high':'#e1e1dd','--surf-highest':'#d6d6d1','--on-surf':'#1d1c21','--on-surf-v':'#55545a','--outline':'#8e8d88','--outline-v':'#d8d7d2','--s-c':'#e1e1dd','--on-s-c':'#1d1c21'}
+    :{'--surf':'#121110','--surf-low':'#171614','--surf-c':'#1d1c1a','--surf-high':'#262422','--surf-highest':'#2f2d2a','--on-surf':'#ece6d8','--on-surf-v':'#bdb5a5','--outline':'#77705f','--outline-v':'#3b3833','--s-c':'#34312c','--on-s-c':'#ece6d8'});
   v['--glow']=pp.secondary; /* the MIXTAPE key glows in the palette's lit colour */
   const st=document.documentElement.style;for(const k in v)st.setProperty(k,v[k]);document.documentElement.classList.toggle('light',light);
   const meta=document.querySelector('meta[name=theme-color]');if(meta)meta.content=v['--surf'];}
 lightMQ.addEventListener('change',()=>paintKeys());
-const dotsEl=$('dots');
 /* each tile is a tiny board in that palette: tinted unlit dots, clock, label and accent */
 function drawPalTile(cv,p,on){const d=Math.min(window.devicePixelRatio||1,2),pt=4*d;cv.width=24*d;cv.height=16*d;const g=cv.getContext('2d');g.clearRect(0,0,cv.width,cv.height);
   g.fillStyle='#050607';g.beginPath();g.roundRect(0,0,cv.width,cv.height,3*d);g.fill();const cols=p.peg?p.rainbow.slice(0,6):[p.primary,p.primary,p.secondary,p.mid,p.accent,p.fish];
   for(let y=0;y<4;y++)for(let x=0;x<6;x++){const lit=y>0&&y<3;g.beginPath();g.arc((x+.5)*pt,(y+.5)*pt,pt*.36,0,Math.PI*2);
     if(lit){g.fillStyle=cols[x];g.globalAlpha=on?1:.6;g.shadowColor=cols[x];g.shadowBlur=on?4*d:0;}else{g.globalAlpha=1;g.shadowBlur=0;g.fillStyle=p.off;}g.fill();}g.globalAlpha=1;g.shadowBlur=0;}
-Object.entries(PALETTES).forEach(([id,p])=>{const b=document.createElement('button');b.type='button';b.className='swatch';b.dataset.pal=id;b.setAttribute('aria-pressed','false');b.setAttribute('aria-label',p.name);b.title=p.name;
-  const cv=document.createElement('canvas');cv.setAttribute('aria-hidden','true');b.appendChild(cv);const nm=document.createElement('span');nm.textContent=p.name;b.appendChild(nm);b._cv=cv;b._p=p;b.addEventListener('click',()=>{S.palette=id;save();paintKeys();layout();});dotsEl.appendChild(b);});
-/* DISPLAY: palette and brightness, one level down, in a little panel under the key */
-const dispKey=$('dispKey'),dispPanel=$('dispPanel');
-function setDisp(open){dispPanel.hidden=!open;dispKey.setAttribute('aria-expanded',String(open));}
-dispKey.addEventListener('click',e=>{e.stopPropagation();setDisp(dispPanel.hidden);});
-document.addEventListener('click',e=>{if(!dispPanel.hidden&&!e.target.closest('#dispWrap,#dispPanel'))setDisp(false);});
-document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!dispPanel.hidden){setDisp(false);dispKey.focus();}}); /* Escape closes the panel; it's not a shortcut for anything else */
+/* the display follows the starting track, until someone picks a look by hand */
+function autoPalette(base){if(BC||S.palettePicked)return;const id=TRACK_PALETTE[base];if(id&&S.palette!==id){S.palette=id;save();paintKeys();layout();}}
+/* DISPLAY: one key, tap for the next look. No panel, nothing opens: the board just changes and says its name. */
+const dispKey=$('dispKey');
+dispKey.addEventListener('click',()=>{const i=SHOWN_PALETTES.indexOf(S.palette);S.palette=SHOWN_PALETTES[(i+1)%SHOWN_PALETTES.length];S.palettePicked=1;save();paintKeys();layout();dirty=true;}); /* no name flash: the station info stays put */
 const playKey=$('playKey');
-playKey.addEventListener('click',()=>{if(gen){stopRadio();return;}playRadio();
+playKey.addEventListener('click',()=>{if(gen&&actx&&actx.state!=='running'){actx.resume().then(paintKeys,()=>{});return;} /* queued but the browser held it: this tap starts it */
+  if(gen){stopRadio();return;}playRadio();
   if(!cat.inBox&&!cat.eat&&!cat.purr&&!cat.goBox&&(cat.state==='sit'||cat.state==='act'))act((performance.now()-t0)/1000,'loaf');}); /* press play and she settles into a loaf */
-const brightEl=$('brightness'),volEl=$('volume');brightEl.value=S.brightness;volEl.value=S.volume;
-brightEl.addEventListener('input',()=>{S.brightness=+brightEl.value;paintKeys();save();});
+const volEl=$('volume');volEl.value=S.volume;
 function applyVol(){if(gen)gen.master.gain.setTargetAtTime(vol()*levelOf(gen.id),actx.currentTime,.1);}
 function setMuted(m){muted=!!m;applyVol();dirty=true;paintKeys();}
 const muteKey=$('muteKey');muteKey.addEventListener('click',()=>setMuted(!muted));
 volEl.addEventListener('input',()=>{S.volume=+volEl.value;muted=false;applyVol();paintKeys();save();});
 function paintKeys(){applyScheme();if(window.__mtPaint)window.__mtPaint();
-  dotsEl.querySelectorAll('.swatch').forEach(b=>{const on=b.dataset.pal===S.palette;b.setAttribute('aria-pressed',String(on));drawPalTile(b._cv,b._p,on);});drawPalTile($('dispTile'),PALETTES[S.palette]||PALETTES.pegs,true);
-  const on=!!gen;playKey.setAttribute('aria-pressed',String(!!on));playKey.title=on?'Stop':'Play';
+  const pal=PALETTES[S.palette]||PALETTES.pegs;drawPalTile($('dispTile'),pal,true);dispKey.setAttribute('aria-label','Display: '+pal.name+'. Tap for the next look.');dispKey.title=pal.name+' · tap for the next look';
+  const on=playing();playKey.setAttribute('aria-pressed',String(!!on));playKey.title=on?'Stop':'Play';
   if(typeof paintPipMute==='function')paintPipMute(!!on);
-  $('brightnessOut').textContent=Math.round(S.brightness*100);$('volOut').textContent=muted?'Muted':Math.round(S.volume*100);
+  $('volOut').textContent=muted?'Muted':Math.round(S.volume*100);
   muteKey.setAttribute('aria-pressed',String(muted));muteKey.setAttribute('aria-label',muted?'Unmute':'Mute');muteKey.title=muted?'Unmute':'Mute';volEl.closest('.vol').classList.toggle('muted',muted);
-  brightEl.style.setProperty('--v',((S.brightness-.1)/.9*100)+'%');volEl.style.setProperty('--v',(S.volume*100)+'%');}
+  volEl.style.setProperty('--v',(S.volume*100)+'%');}
 
 
 /* ================= A cat on the desk (she lives on the 128x16 strip) ================= */
@@ -889,12 +1007,14 @@ const KIT_EAR=['..##..........','..#p#...###...','..##########..','.#####hh#####
 const KIT_STRETCH=['..##......##..','..#p#....#p#..','..##########..','.#####hh#####.','#############s','####o#####o##s','####o#####o##s','######hmh####s','############s.','#..#######s...','#..#######s...','#.########ss..','..s#.#s.#ss...']; /* stretches up tall, tail straight up */
 const HEART=['.#.#.','#####','.###.','..#..'];
 const ZEE=['####','..#.','.#..','####'];
-const cat={x:60,dir:1,state:'sit',until:3,target:null,eat:null,blink:0,nextBlink:4,zt:0,purr:false,hearts:[],ht:0,pets:0};
+const cat={x:60,dir:1,state:'sit',until:3,target:null,eat:null,blink:0,nextBlink:4,zt:0,purr:false,hearts:[],ht:0,pets:0,bob:0,earAt:-9};
+/* what kind of groove is on: 'beat' (drums), 'chip' (the 8-bit start) or 'ambient' (no drums). She behaves accordingly. */
+function grooveKind(){if(!playing())return 'none';const tp=tapeOf(S.station);if(tp)return tp.d===0?'ambient':(tp.i?tp.s===3:tp.k===4)?'chip':'beat';return S.station==='gen:desert'||CALM.some(c=>c.id===S.station)?'ambient':'beat';}
 let purrNode=null;
 const ACT_WORDS={loaf:'loafing',groom:'grooming',yawn:'yawning',glance:'looking around',stretch:'stretching'};
 function catWords(){if(cat.inBox)return cat.state==='sleep'?'asleep in her box':cat.purr?'purring in her box':'in her box';if(cat.state==='hop')return 'hop!';if(cat.state==='sleep'&&cat.away)return 'dozing till you get back';if(cat.state==='act'&&ACT_WORDS[cat.act])return ACT_WORDS[cat.act];if(cat.state==='eat')return 'eating a fish';if(cat.state==='fed')return 'happy and full';if(cat.purr)return 'purring';if(cat.state==='sleep')return 'asleep';if(cat.state==='walk')return 'wandering';
   return {rain:'watching the rain',snow:'watching the snow',leaves:'watching leaves fall',petals:'watching petals',fireflies:'watching fireflies'}[skyNow]||(cat.aloof?'pretending not to hear you':isNight(NOW())?'moon gazing':'on the desk');}
-function pick(t,now){const night=nightDim(now)<.7;const r=Math.random();
+function pick(t,now){const night=nightDim(now)<.7;let r=Math.random();const gk=grooveKind();if(gk==='ambient'&&r<.5)r=.52+r*.2;else if(gk==='chip'&&r>.9)r=.3+(r-.9)*2; /* ambient: more loafing, less wandering; 8-bit: she stays up and about */
   if(night&&r<.6){cat.state='sleep';cat.until=t+15+Math.random()*25;return;}
   if(r<(RM.matches?.1:.25)){cat.state='walk';cat.target=DESK_MIN+Math.random()*(W-14-DESK_MIN);return;}
   if(r<.52){cat.state='sit';cat.until=t+5+Math.random()*8;cat.aloof=Math.random()<.2;return;}
@@ -908,6 +1028,12 @@ function pick(t,now){const night=nightDim(now)<.7;const r=Math.random();
   cat.state='sleep';cat.until=t+10+Math.random()*15;}
 /* her cardboard box, at the left end of the desk: tan whatever the palette, flaps open */
 const BOX_X=2,BOX_IN=BOX_X+3,BOX_OUT=BOX_X+21,DESK_MIN=BOX_OUT;
+/* her entrance, once per browser session: peeking over the box straight away, then a hop out at about 1.15 s and a
+   little walk to the keyboard. Reduced motion skips it (she's just sitting there). Touching the desk finishes it. */
+let entering=false;
+if(!BC&&!RM.matches){try{if(!sessionStorage.getItem('loafIn')){sessionStorage.setItem('loafIn','1');entering=true;}}catch(e){}}
+if(entering){cat.inBox=true;cat.x=BOX_IN;cat.dir=1;cat.state='box';cat.t0=-.5;cat.until=1.15;cat.next=Math.round(W/2-10);}
+function endEntrance(){if(!entering)return;entering=false;if(cat.inBox||cat.state==='hop'){const t=(performance.now()-t0)/1000;cat.inBox=false;cat.x=BOX_OUT;cat.next=null;cat.hop=null;cat.state='sit';cat.until=t+4;dirty=true;}}
 const BOX=['X..................X','.X................X.','..LLLLLLLLLLLLLLLL..','..HTTTTTTTKKTTTTTD..','..HTTTTTTTKKTWWWWD..','..HTTTTTTTKKWWWWTD..','..SSSSSSSSSSSSSSSS..']; /* H lit side, D shaded side, S shadow at the base, K packing tape, W a crooked shipping label */
 const BOXC={X:0xb8894f,L:0xdcb47a,H:0xd1a86f,T:0xc49a62,D:0x8f6b3d,S:0xa07a4a,K:0xae8550,W:0xece2cf};
 function hop(t,into){cat.state='hop';cat.hop={x0:cat.x,x1:into?BOX_IN:BOX_OUT,t0:t,d:.65,into};cat.dir=into?-1:1;cat.inBox=false;}
@@ -915,13 +1041,13 @@ const ACT_LEN={loaf:[8,16],groom:[2.5,4],yawn:[1.4,1.4],glance:[2.6,2.6],lookup:
 function act(t,a,...next){cat.aloof=false;if(cat.inBox){cat.state='box';cat.t0=t;cat.until=t+6+Math.random()*8;return;}cat.state='act';cat.act=a;cat.t0=t;const [lo,hi]=ACT_LEN[a];cat.until=t+lo+Math.random()*(hi-lo);cat.queue=next;}
 /* when you've been away from the page for a while she curls up; when you come back she wakes, yawns, stretches and wanders over */
 const AWAY_MS=10*60*1000;let lastActive=Date.now();
-function noteActive(){lastActive=Date.now();if(cat.away){cat.away=false;if(!S.sitStart){act((performance.now()-t0)/1000,'yawn','stretch');cat.comeOver=true;}}}
+function noteActive(){lastActive=Date.now();if(cat.away){cat.away=false;if(!cat.nap){act((performance.now()-t0)/1000,'yawn','stretch');cat.comeOver=true;}}}
 function catStep(t,dt,now){
   if(cat.purr){cat.ht-=dt;if(cat.ht<=0){cat.hearts.push({x:cat.x+(Math.random()<.5?-2:12),y:2,a:1,dx:(Math.random()-.5)*2});cat.ht=.7+Math.random()*.4;cat.pets++;
       if(cat.pets>6&&cat.state!=='sleep'){cat.state='sleep';cat.until=t+25+Math.random()*25;cat.purr=false;purrStop();}}return;} /* pet her past six hearts and she dozes off */
   if(cat.state==='hop'){const h=cat.hop,q=(t-h.t0)/h.d;if(q<1){cat.x=h.x0+(h.x1-h.x0)*q;return;}cat.x=h.x1;
-    if(h.into){cat.inBox=true;cat.state='box';cat.t0=t;cat.until=t+12+Math.random()*16;}else if(cat.next!=null){cat.state='walk';cat.target=cat.next;cat.next=null;}else{cat.state='sit';cat.until=t+3+Math.random()*4;}return;}
-  if(S.sitStart){cat.state='sleep';return;} /* she sits with you */
+    entering=false;if(h.into){cat.inBox=true;cat.state='box';cat.t0=t;cat.until=t+12+Math.random()*16;}else if(cat.next!=null){cat.state='walk';cat.target=cat.next;cat.next=null;}else{cat.state='sit';cat.until=t+3+Math.random()*4;}return;}
+  if(cat.nap){if(cat.inBox){cat.state='box';cat.until=t+60;}else cat.state='sleep';return;} /* Z: she naps until you wake her */
   if(!BC&&!cat.away&&Date.now()-lastActive>AWAY_MS&&!cat.eat&&cat.state!=='fed'){cat.away=true;cat.state='sleep';cat.until=Infinity;return;}
   if(!cat.eat&&cat.state!=='fed'&&treats.length){const tr=treats.reduce((a,b)=>Math.abs(b.x-cat.x-5)<Math.abs(a.x-cat.x-5)?b:a); /* a treat always wakes her up */
     cat.eat=tr;cat.goBox=false;cat.state='walk';cat.target=clamp(tr.x+2>cat.x+7?tr.x-11:tr.x-1,DESK_MIN,W-14);}
@@ -938,9 +1064,9 @@ let SHADE=0,EARC=0,HIC=0;
 function blit(sp,x,y,c,eyesOpen=true,still=false){if(!still)sp=facing(sp);sp.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch==='.')continue;const xx=x+i,yy=y+j;if(xx<0||yy<0||xx>=W||yy>=GH)continue;gfb[yy*W+xx]=ch==='s'?SHADE:ch==='p'?EARC:ch==='h'?HIC:ch==='o'?(eyesOpen?-1:c):ch==='m'?-1:ch==='w'?dim(c,.7):c;}});}
 
 /* ================= The desk's sky (no location needed) =================
-   Night brings stars and the real phase of the moon. The season comes from the date, flipped for the southern
+   Night brings stars (no moon: nothing big hanging over the desk). The season comes from the date, flipped for the southern
    hemisphere when the device's time zone is there. Each day has its own weather, picked from the date, so it's the
-   same all day and on every device. Try ?sky=rain, snow, leaves, petals or fireflies, and &night to see the moon. */
+   same all day and on every device. Try ?sky=rain, snow, leaves, petals or fireflies, and &night for the night sky. */
 const SKYQ=new URLSearchParams(location.search),SKY_FORCE=(SKYQ.get('sky')||'').toLowerCase(),NIGHT_FORCE=SKYQ.has('night');
 const SOUTH=(()=>{try{return /^(Australia|Antarctica|Pacific\/(Auckland|Chatham|Fiji|Tongatapu|Apia|Noumea)|America\/(Sao_Paulo|Argentina|Buenos_Aires|Santiago|Montevideo|Asuncion|La_Paz|Lima|Punta_Arenas)|Africa\/(Johannesburg|Maputo|Harare|Windhoek|Gaborone|Lusaka|Maseru|Mbabane|Blantyre|Lubumbashi)|Indian\/(Mauritius|Reunion|Antananarivo))/.test(Intl.DateTimeFormat().resolvedOptions().timeZone||'');}catch(e){return false;}})();
 function season(d){let m=d.getMonth();if(SOUTH)m=(m+6)%12;return m===11||m<2?'winter':m<5?'spring':m<8?'summer':'autumn';}
@@ -950,19 +1076,22 @@ function isNight(d){if(NIGHT_FORCE)return true;const h=d.getHours();return h>=20
 const STATION_SKY={'gen:window':'rain','gen:rain':'rain','gen:late':'stars','gen:desert':'stars','gen:waves':'stars','gen:fire':'stars','gen:crt':'matrix','gen:sunday':'leaves','gen:purr':'plain','gen:brown':'plain'};
 function skyKind(d){if(SKY_FORCE)return SKY_FORCE;
   if(gen){if(STATION_SKY[gen.id])return STATION_SKY[gen.id];const tp=tapeOf(gen.id);
-    if(tp)return tp.w===1?'rain':tp.w===2||tp.w===3?'stars':tp.w===4?'plain':['stars','leaves','stars','stars','matrix'][tp.v];} /* a tape: its weather, or its band */
+    if(tp)return tp.w===1?'rain':tp.w===2||tp.w===3?'stars':tp.w===4?'plain':(tp.k===4?'matrix':'stars');} /* a tape: its atmosphere, or stars (code rain for 8-bit) */
   const s=season(d),r=dayRand(d);
   if(s==='winter')return r<.45?'snow':r<.6?'rain':'clear';
   if(r<.18)return 'rain';
   return s==='autumn'?'leaves':s==='spring'?'petals':isNight(d)?'fireflies':'clear';}
+function outsideNow(){if(!gen)return 0;const tp=tapeOf(gen.id);if(tp)return tp.w;return {'gen:rain':1,'gen:window':1,'gen:waves':2,'gen:fire':3,'gen:purr':4}[gen.id]||0;}
+const TINT=[null,['#7fb4e6','#a9d4ff'],['#5fe0d6','#a6fff4'],['#ff8a3d','#ef5548','#ffc06b'],['#f7d7c4','#f4a9c8']];
+function tint(t){const w=outsideNow();if(!w)return;const cols=TINT[w].map(hexInt),n=RM.matches?2:4;
+  for(let i=0;i<n;i++){const k=Math.floor(t*(w===3?2.2:.5)+i*7.3),h=Math.abs(Math.sin(k*12.9898+i)*43758.5)%1,a=w===3?.35+.4*Math.abs(Math.sin(t*9+i*3)):.25+.2*Math.sin(t*1.3+i);
+    if(w===4){put(cat.x+3+h*10,6+((i*3)%5),dim(cols[i%2],Math.max(.12,a*.8)));continue;} /* a soft glow around her while she purrs */
+    put((h*W+i*31)%W,w===3?11+(i%2):w===2?12:10+(i%3),dim(cols[i%cols.length],a));}} /* the fire reflecting off the radio; rain and sea in cooler glints */
 function moonPhase(d){const p=((d.getTime()-Date.UTC(2000,0,6,18,14))/864e5/29.530588853)%1;return p<0?p+1:p;}
 function put(x,y,c){x=Math.round(x);y=Math.round(y);if(x>=0&&x<W&&y>=0&&y<13)gfb[(y+2)*W+x]=c;} /* the sky sits in the 13 rows above the desk */
 function drawSky(t,P,now){const peg=k=>[P.A,P.HI,P.FISH,P.S2][k],kind=skyKind(now);
   if(isNight(now)||kind==='stars'){
-    for(let i=0;i<(kind==='stars'?14:9);i++){const sx=(i*23+Math.floor(t*(.3+i*.15)))%W;put(W-1-sx,(i*5)%9,dim(i%4?P.HI:P.FISH,i%4?.38:.5));} /* stars, one in four warm */
-    const p=moonPhase(now),mx=118,my=4,r=3.4;
-    for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){if(dx*dx+dy*dy>r*r)continue;const w=Math.sqrt(r*r-dy*dy),c=Math.cos(2*Math.PI*p)*w,ex=SOUTH?-dx:dx;
-      const lit=p<.5?ex>c-.5:ex<-c+.5,crater=(dx===-1&&dy===-1)||(dx===1&&dy===1)||(dx===2&&dy===-1)||(dx===-1&&dy===2);put(mx+dx,my+dy,lit?(crater?dim(P.HI,.55):P.HI):dim(P.DEEP,.8));}} /* a few craters so it reads as the moon */
+    for(let i=0;i<(kind==='stars'?14:9);i++){const sx=(i*23+Math.floor(t*(.3+i*.15)))%W;put(W-1-sx,(i*5)%9,dim(i%4?P.HI:P.FISH,i%4?.38:.5));}} /* stars, one in four warm */
   if(kind==='stars'){ /* now and then a meteor: a bright head and a fading tail, across and down */
     const per=11,k=Math.floor(t/per),ph=t-k*per,h=Math.abs(Math.sin(k*91.7+3.1)*43758.5)%1;
     if(h<.75&&ph<1){const x0=12+h*85,y0=Math.floor(h*10)%3,q=ph;for(let j=0;j<7;j++){const qq=q-j*.035;if(qq<0)continue;put(x0+qq*30,y0+qq*8,dim(P.HI,(1-j/7)*(q<.8?1:(1-q)*5)));}}}
@@ -979,35 +1108,38 @@ function drawSky(t,P,now){const peg=k=>[P.A,P.HI,P.FISH,P.S2][k],kind=skyKind(no
   return kind;}
 let skyNow='clear';
 let glast=0;
-function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(P.A,.85);const now=NOW();gfb.fill(-1);const dt=Math.min(.05,glast?t-glast:0);glast=t;catStep(t,dt,now);const ground=15;
-  skyNow=drawSky(t,P,now);
-  const sp=sitPhase(),pegsLit=sp&&sp.ph==='sit'?Math.floor(sp.p*32):32,pulse=.55+.45*Math.sin(t*1.2);
-  for(let x=0;x<W;x++){const major=x%4===0;gfb[(ground+1)*W+x]=P.PEG?-1:P.DEEP;
-    if(major&&sp&&sp.ph!=='done'){const k=x>>2;gfb[ground*W+x]=k<pegsLit?(sp.ph==='rest'?dim(P.HI,.6+.4*pulse):P.HI):k===pegsLit?dim(P.HI,.25+.5*pulse):P.DEEP;continue;} /* while you sit, the pegs light one by one */
+function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(P.A,.85);const now=NOW();const FIELD=R(P.BG)+G(P.BG)+B(P.BG)>0?dim(P.BG,.6):-1;gfb.fill(FIELD);const dt=Math.min(.05,glast?t-glast:0);glast=t;catStep(t,dt,now);const ground=15;
+  skyNow=drawSky(t,P,now);tint(t);
+  for(let x=0;x<W;x++){const major=x%4===0;gfb[(ground+1)*W+x]=P.PEG?FIELD:P.DEEP;
     gfb[ground*W+x]=P.PEG?dim(P.PEG[(x>>2)%P.PEG.length],major?1:.8):major?P.S2:P.MID;} /* the desk edge (on the pegboard, a rainbow line of pegs, four of each colour) */
   drawKeys(P,ground);
   for(const tr of treats){if(tr.y<ground-3){tr.vy+=70*dt;tr.y=Math.min(ground-3,tr.y+tr.vy*dt);if(tr.y>=ground-3)plip();} /* the treat drops onto the desk */
     const bite=cat.state==='eat'&&cat.eat===tr?clamp((cat.until-t)/EAT_S,0,1):1;if(bite>0)blit(FISH,Math.round(tr.x),Math.round(tr.y),dim(P.FISH,.35+.65*bite),true,true);}
-  const on=playing();const cx=Math.round(cat.x);
+  const on=playing();const cx=Math.round(cat.x);const gk=on?grooveKind():'none';
+  /* she listens: on a kick she dips (bobs her head) if she's up; a hat flicks an ear now and then */
+  if(on&&gk!=='ambient'&&gk!=='none'&&t-groove.kickAt<.02&&!cat.purr&&(cat.state==='sit'||cat.state==='walk'||(cat.state==='act'&&cat.act==='loaf')))cat.bob=gk==='chip'?2:1;
+  if(cat.bob&&t-groove.kickAt>.14)cat.bob=0;
+  if(on&&t-groove.hatAt<.02&&t-cat.earAt>1.2&&Math.random()<.35&&cat.state==='sit'&&!cat.purr)cat.earAt=t;
+  const gy=ground+cat.bob; /* her ground line: a dip on the kick */
   cat.nextBlink-=dt;if(cat.nextBlink<0){cat.blink=.15;cat.nextBlink=3+Math.random()*4;}cat.blink-=dt;
   const eyesOpen=!cat.purr&&cat.blink<=0;
-  if(cat.state==='hop'){const h=cat.hop,q=clamp((t-h.t0)/h.d,0,1);blit(KIT_STEP,cx,ground-12-Math.round(Math.sin(Math.PI*q)*3),P.C,true);}
-  else if(cat.state==='box'&&!cat.purr){const ph=(t-cat.t0)%7,duck=ph>3&&ph<5;blit(duck?KIT.slice(0,9):KIT,cx,ground-12+(duck?3:0),P.C,eyesOpen);} /* peeking over the edge, ducking down now and then */
-  else if(cat.state==='sleep'){blit(KIT_SLEEP,cx,ground-5,P.C);
+  if(cat.state==='hop'){const h=cat.hop,q=clamp((t-h.t0)/h.d,0,1);blit(KIT_STEP,cx,gy-12-Math.round(Math.sin(Math.PI*q)*3),P.C,true);}
+  else if(cat.state==='box'&&!cat.purr){const ph=(t-cat.t0)%7,duck=ph>3&&ph<5;blit(duck?KIT.slice(0,9):KIT,cx,gy-12+(duck?3:0),P.C,eyesOpen);} /* peeking over the edge, ducking down now and then */
+  else if(cat.state==='sleep'){blit(KIT_SLEEP,cx,gy-5,P.C);
     cat.zt+=dt;const ph=cat.zt%3.5;if(ph<2){const zx=cat.dir>0?cx+15:cx-5,zy=Math.round(9-ph*3);blit(ZEE,zx,zy,dim(P.S2,.6*(1-ph/2)+.2));}}
-  else if(cat.purr||cat.state==='fed')blit(KIT_PET,cx,ground-12,P.C,true);
-  else if(cat.state==='eat'){const dn=Math.floor(t*5)%2;blit(dn?KIT:KIT_PET,cx,ground-12+dn,P.C,!dn);} /* nom: eyes shut on each bite, happy squint between */
+  else if(cat.purr||cat.state==='fed')blit(KIT_PET,cx,gy-12,P.C,true);
+  else if(cat.state==='eat'){const dn=Math.floor(t*5)%2;blit(dn?KIT:KIT_PET,cx,gy-12+dn,P.C,!dn);} /* nom: eyes shut on each bite, happy squint between */
   else if(cat.state==='act'){const a=cat.act,e=t-cat.t0;
-    if(a==='loaf')blit(KIT_LOAF,cx,ground-12,P.C,true);
-    else if(a==='groom'){const f=Math.floor(e*3)%2;blit(KIT_GROOM,cx,ground-12+f,P.C,true);}
-    else if(a==='yawn')blit(KIT_YAWN,cx,ground-12,P.C,false);
-    else if(a==='glance')blit(e<.5?(Math.floor(e*8)%2?KIT_EAR:KIT):e<1.4?KIT_LOOK:e<2.2?KIT_LOOKR:KIT,cx,ground-12,P.C,eyesOpen);
-    else if(a==='lookup')blit(KIT_UP,cx,ground-12,P.C,eyesOpen);
-    else if(a==='stretch')blit(KIT_STRETCH,cx,ground-13,P.C,false);
-    else blit(KIT,cx,ground-12,P.C,eyesOpen);}
-  else if(cat.state==='walk'){const f=Math.floor(t*6)%2;blit(f?KIT_STEP:KIT,cx,ground-12,P.C,eyesOpen);}
-  else blit(KIT,cx,ground-12,P.C,eyesOpen);
-  if(on&&cat.state!=='sleep'){const tw=Math.round(vu(t)[2]*2);for(let k=0;k<tw;k++){const tx=cat.dir>0?cx-1-k:cx+14+k;if(tx>=0&&tx<W)gfb[(ground-1-k)*W+tx]=P.C;}} /* her tail flicks to the music */
+    if(a==='loaf')blit(KIT_LOAF,cx,gy-12,P.C,true);
+    else if(a==='groom'){const f=Math.floor(e*3)%2;blit(KIT_GROOM,cx,gy-12+f,P.C,true);}
+    else if(a==='yawn')blit(KIT_YAWN,cx,gy-12,P.C,false);
+    else if(a==='glance')blit(e<.5?(Math.floor(e*8)%2?KIT_EAR:KIT):e<1.4?KIT_LOOK:e<2.2?KIT_LOOKR:KIT,cx,gy-12,P.C,eyesOpen);
+    else if(a==='lookup')blit(KIT_UP,cx,gy-12,P.C,eyesOpen);
+    else if(a==='stretch')blit(KIT_STRETCH,cx,gy-13,P.C,false);
+    else blit(t-cat.earAt<.14?KIT_EAR:KIT,cx,gy-12,P.C,eyesOpen);}
+  else if(cat.state==='walk'){const f=Math.floor(t*6)%2;blit(f?KIT_STEP:KIT,cx,gy-12,P.C,eyesOpen);}
+  else blit(t-cat.earAt<.14?KIT_EAR:KIT,cx,gy-12,P.C,eyesOpen);
+  if(on&&cat.state!=='sleep'){const tw=Math.round(vu(t)[2]*2);for(let k=0;k<tw;k++){const tx=cat.dir>0?cx-1-k:cx+14+k;if(tx>=0&&tx<W)gfb[(gy-1-k)*W+tx]=P.C;}} /* her tail flicks to the music */
   BOX.forEach((row,j)=>{for(let i=0;i<row.length;i++){const ch=row[i];if(ch!=='.')gfb[(ground-7+j)*W+BOX_X+i]=BOXC[ch];}}); /* the box goes in front of her */
   for(const hh of cat.hearts){hh.y-=dt*4;hh.x+=hh.dx*dt;hh.a-=dt*.35;if(hh.a>0)blit(HEART,Math.round(hh.x),Math.round(hh.y),dim(P.A,Math.max(.25,hh.a)));}
   cat.hearts=cat.hearts.filter(hh=>hh.a>0&&hh.y>-4);}
@@ -1015,15 +1147,11 @@ function drawGame(t){const P=pal();SHADE=P.MID;HIC=P.HI;EARC=P.PEG?P.PEG[5]:dim(
    The gaps under the top row are filled where a black key sits, so the 2-and-3 pattern shows once you look.
    Each note the music plays lights its key for a moment (folded into range by octaves). */
 const WHITE=[0,-1,1,-1,2,3,-1,4,-1,5,-1,6],BLACK_AFTER=[1,1,0,1,1,1,0]; /* white index per pitch class; is there a black key after each white key */
-function drawKeys(P,ground){const r1=ground+1,r2=ground+2;if(r2>=GH)return;const face=P.PEG?dim(0xffffff,.15):dim(P.HI,.15),blk=P.PEG?dim(0xffffff,.05):dim(P.HI,.055),now=actx?actx.currentTime:0,lit=new Map();
-  for(let i=0;i<keyHits.length;i+=2){const dt=now-keyHits[i];if(dt<0||dt>.45)continue;let m=keyHits[i+1];while(m<36)m+=12;while(m>79)m-=12;const lv=1-dt/.45;if(lv>(lit.get(m)||0))lit.set(m,lv);}
+function drawKeys(P,ground){const r1=ground+1,r2=ground+2;if(r2>=GH)return;const face=P.PEG?dim(0xffffff,.15):dim(P.HI,.15),blk=P.PEG?dim(0xffffff,.05):dim(P.HI,.055);
   for(let k=0;k<32;k++){const x=k*4;for(let i=0;i<3;i++){gfb[r1*W+x+i]=face;gfb[r2*W+x+i]=face;}
-    gfb[r2*W+x+3]=-1;gfb[r1*W+x+3]=BLACK_AFTER[k%7]?blk:-1;}
-  for(const [m,lv] of lit){const pc=m%12,oc=Math.floor((m-36)/12),wi=WHITE[pc],col=P.PEG?P.PEG[(m*5)%P.PEG.length]:P.HI;
-    if(wi>=0){const k=oc*7+wi;if(k>31)continue;const x=k*4,c=dim(col,.35+.65*lv);for(let i=0;i<3;i++){gfb[r1*W+x+i]=c;gfb[r2*W+x+i]=c;}}
-    else{const k=oc*7+WHITE[pc-1];if(k>31)continue;gfb[r1*W+k*4+3]=dim(col,.45+.55*lv);}}}
+    gfb[r2*W+x+3]=-1;gfb[r1*W+x+3]=BLACK_AFTER[k%7]?blk:-1;}} /* the keys stay dark: lit with the melody they read as the cat stepping on them */
 /* touch: tap her to pet (she purrs while you hold); tap the desk and she mews and walks over */
-function ensureAudio(){actx=actx||new (window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume();return actx;}
+function ensureAudio(){if(!actx){actx=new (window.AudioContext||window.webkitAudioContext)();actx.addEventListener('statechange',()=>{dirty=true;if(typeof paintKeys==='function')paintKeys();});}if(actx.state==='suspended')actx.resume();return actx;}
 function purrStart(){if(purrNode)return;try{const a=ensureAudio();const o=a.createOscillator();o.type='sawtooth';o.frequency.value=27;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=140;
     const g=a.createGain();g.gain.value=0;const lfo=a.createOscillator();lfo.frequency.value=5.5;const lg=a.createGain();lg.gain.value=.045;lfo.connect(lg).connect(g.gain);
     o.connect(lp).connect(g).connect(a.destination);o.start();lfo.start();g.gain.linearRampToValueAtTime(.06,a.currentTime+.3);purrNode={o,lfo,g};}catch(e){}}
@@ -1040,7 +1168,8 @@ function mew(){try{const a=ensureAudio();if(!noiseBuf){noiseBuf=a.createBuffer(1
       const s=a.createBufferSource();s.buffer=noiseBuf;const hp=a.createBiquadFilter();hp.type='highpass';hp.frequency.value=4200;const bp=a.createBiquadFilter();bp.type='bandpass';bp.frequency.value=6800+Math.random()*600;bp.Q.value=1.2;
       const sg=a.createGain();const len=.09+Math.random()*.03;sg.gain.setValueAtTime(0,t+.02);sg.gain.linearRampToValueAtTime(.05,t+.04);sg.gain.linearRampToValueAtTime(.035,t+.02+len*.6);sg.gain.exponentialRampToValueAtTime(.0001,t+.02+len);
       s.connect(hp).connect(bp).connect(sg).connect(a.destination);s.start(t+.02,Math.random()*.1,len+.02);}}catch(e){}}
-function catHit(e){const r=gameWin.getBoundingClientRect();const x=(e.clientX-r.left)/r.width*W;return {x,near:Math.abs(x-(cat.x+7))<9};}
+function catHit(e){const r=gameWin.getBoundingClientRect();const x=camX+(e.clientX-r.left)/r.width*(W/ZOOM);return {x,near:Math.abs(x-(cat.x+7))<(COARSE.matches?12:9)};} /* on a touch screen the target is a thumb wide */
+const COARSE=matchMedia('(pointer:coarse)');
 /* treats: tap the fish button whenever you like and one drops onto the desk near her; she trots over and eats it */
 let treats=[];const EAT_S=2.4;
 function dropTreat(){if(treats.length>=4)return;let x=cat.dir>0?cat.x+22:cat.x-9;if(x<1||x>W-6)x=cat.dir>0?cat.x-9:cat.x+22;x=clamp(x+Math.round((Math.random()-.5)*6),BOX_OUT+12,W-6);
@@ -1049,14 +1178,17 @@ function plip(){try{const a=ensureAudio(),t0=a.currentTime,o=a.createOscillator(
   g.gain.setValueAtTime(.035,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+.12);o.connect(g).connect(a.destination);o.start(t0);o.stop(t0+.14);}catch(e){}} /* a tiny plip as it lands */
 function munch(){try{const a=ensureAudio(),t0=a.currentTime;for(let k=0;k<3;k++){const t=t0+.15+k*.42,s=a.createBufferSource(),n=a.sampleRate*.05,bf=a.createBuffer(1,n,a.sampleRate),d=bf.getChannelData(0);
     for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);s.buffer=bf;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1100;const g=a.createGain();g.gain.value=.05;s.connect(lp).connect(g).connect(a.destination);s.start(t);}}catch(e){}} /* three soft little crunches */
-gameWin.addEventListener('pointerdown',e=>{e.preventDefault();const hit=catHit(e);
+gameWin.addEventListener('pointerdown',e=>{e.preventDefault();endEntrance();if(cat.nap){napEnd();return;}const hit=catHit(e);
   if(cat.eat||cat.state==='fed'||cat.state==='hop')return; /* let her eat (or land) in peace */
-  if(hit.near){cat.purr=true;cat.pets=0;if(cat.state!=='sleep'&&!cat.inBox)cat.state='sit';purrStart();}
-  else if(hit.x<BOX_X+20){if(S.sitStart)return;if(cat.inBox){cat.t0=(performance.now()-t0)/1000-3;return;} /* tap the box: she ducks; or she comes and climbs in */
+  if(hit.near){if(!S.petSeen){S.petSeen=1;save();if(petHint)petHint.hidden=true;}cat.purr=true;cat.pets=0;if(cat.state!=='sleep'&&!cat.inBox)cat.state='sit';purrStart();}
+  else if(hit.x<BOX_X+20){if(cat.nap)napEnd(true);if(cat.inBox){cat.t0=(performance.now()-t0)/1000-3;return;} /* tap the box: she ducks; or she comes and climbs in */
     cat.purr=false;purrStop();mew();cat.goBox=true;cat.state='walk';cat.target=BOX_OUT;}
-  else{if(S.sitStart)return;cat.purr=false;purrStop();mew();cat.goBox=false;cat.state='walk';cat.target=clamp(hit.x-7,DESK_MIN,W-14);}});
+  else{if(cat.nap)napEnd(true);cat.purr=false;purrStop();mew();cat.goBox=false;cat.state='walk';cat.target=clamp(hit.x-7,DESK_MIN,W-14);}});
 ['pointerup','pointerleave','pointercancel'].forEach(ev=>gameWin.addEventListener(ev,()=>{if(cat.purr){cat.purr=false;purrStop();if(cat.state!=='sleep'){const tt=(performance.now()-t0)/1000;if(cat.inBox){cat.state='box';cat.until=Math.max(cat.until||0,tt+8);}else{cat.state='sit';cat.until=tt+6;}}}}));
 function paintGame(){gameWin.hidden=false;layout();}
+/* first visit on a touch screen: one small hint, gone for good after the first pet */
+petHint=document.createElement('div');petHint.className='pethint';petHint.textContent='Pet Loafie';petHint.hidden=true;petHint.setAttribute('aria-hidden','true');gameWin.appendChild(petHint);
+if(!BC&&!S.petSeen&&matchMedia('(pointer:coarse)').matches)petHint.hidden=false;
 
 
 /* ================= Idle fade, keyboard, init ================= */
@@ -1068,38 +1200,19 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){navigator.s
 paintKeys();paintGame();
 
 
-/* ================= Sit: twenty minutes with the cat =================
-   Twenty minutes, the length many meditation practices use (often twice a day), then two unhurried minutes before
-   you get up. She sleeps beside you the whole time, the pegs along the desk light one by one as the time passes,
-   a soft low tone marks the end, and she gets a fish when it's over. */
-const SIT_MIN=20,REST_MIN=2,FISH=['.##.#','####.','.##.#'];
-function today(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
-function sitPhase(){if(!S.sitStart)return null;const e=(Date.now()-S.sitStart)/60000;
-  if(e<SIT_MIN)return {ph:'sit',p:e/SIT_MIN,left:Math.max(1,Math.ceil(SIT_MIN-e))};if(e<SIT_MIN+REST_MIN)return {ph:'rest',p:(e-SIT_MIN)/REST_MIN};return {ph:'done'};}
-let sitTone=null;
-function scheduleTone(){try{const a=ensureAudio(),left=(S.sitStart+SIT_MIN*60000-Date.now())/1000;if(left<=0)return;const t=a.currentTime+left;
-  const g=a.createGain();g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(.05,t+1.2);g.gain.exponentialRampToValueAtTime(.0001,t+7);g.connect(a.destination);
-  const o1=a.createOscillator(),o2=a.createOscillator();o1.type=o2.type='sine';o1.frequency.value=220;o2.frequency.value=330;o1.connect(g);o2.connect(g);o1.start(t);o2.start(t);o1.stop(t+7.2);o2.stop(t+7.2);
-  sitTone={stop(){try{o1.stop();o2.stop();g.disconnect();}catch(e){}}};}catch(e){}} /* scheduled on the audio clock, so it arrives on time even in a background tab */
-function sitStart(){S.sitStart=Date.now();save();cat.purr=false;purrStop();cat.state='sleep';scheduleTone();paintSit();dirty=true;}
-function sitEnd(finished){S.sitStart=0;save();if(sitTone){sitTone.stop();sitTone=null;}
-  cat.state='walk';cat.target=clamp(W/2-7+(Math.random()-.5)*20,0,W-14);if(finished)setTimeout(dropTreat,1500);paintSit();dirty=true;}
+/* ================= Z: Loafie naps =================
+   A cat thing, not a mode: tap Z and she curls up (in her box, if she's in it); tap again and she wakes, yawns,
+   stretches and carries on. The music doesn't care either way. A fish, or calling her, wakes her too. */
+const FISH=['.##.#','####.','.##.#'];
 const sitKey=$('sitKey');
-function paintSit(){const on=!!S.sitStart;feedKey.disabled=on;if(pipFeed)pipFeed.disabled=on;if(pipSit){pipSit.setAttribute('aria-pressed',String(on));pipSit.title=on?'End the sit':'Sit for 20 minutes';pipSit.setAttribute('aria-label',pipSit.title);pipSit.classList.toggle('on',on);}sitKey.setAttribute('aria-pressed',String(on));sitKey.title=on?'End the sit':'Sit for 20 minutes';}
-sitKey.addEventListener('click',()=>{S.sitStart?sitEnd(false):sitStart();});
-const feedKey=$('feedKey');feedKey.addEventListener('click',dropTreat);
-/* Sleep timer, like every clock radio: 15, 30 or 60 minutes, then the music fades out over half a minute. Not saved. */
-const sleepKey=$('sleepKey');let sleepT=null;const SLEEP_STEPS=[15,30,60,0];
-function paintSleep(){const m=sleepLeft();sleepKey.setAttribute('aria-pressed',String(!!m));sleepKey.querySelector('span').textContent=m?m+' MIN':'SLEEP';
-  sleepKey.title=m?'Sleep timer: music stops in '+m+' min (tap to change)':'Sleep timer';sleepKey.setAttribute('aria-label',sleepKey.title);dirty=true;}
-sleepKey.addEventListener('click',()=>{const cur=sleepAt?Math.round((sleepAt-Date.now())/60000):0;const next=SLEEP_STEPS.find(s=>s===0?true:s>cur+.5)||0;
-  clearTimeout(sleepT);sleepAt=next?Date.now()+next*60000:0;if(sleepAt)sleepT=setTimeout(sleepNow,next*60000);paintSleep();});
-function sleepNow(){sleepAt=0;paintSleep();if(!gen)return;try{const g=gen,a=actx;g.master.gain.cancelScheduledValues(a.currentTime);g.master.gain.setValueAtTime(g.master.gain.value,a.currentTime);g.master.gain.linearRampToValueAtTime(0,a.currentTime+30);
-  setTimeout(()=>{if(gen===g)stopRadio();},30500);}catch(e){stopRadio();}}
-setInterval(()=>{if(sleepAt)paintSleep();},20000);
-setInterval(()=>{const sp=sitPhase();if(sp&&sp.ph==='done')sitEnd(true);},1000);
-if(S.sitStart&&sitPhase().ph==='done')sitEnd(true);
-paintSit();
+function napStart(){cat.nap=true;cat.purr=false;purrStop();cat.goBox=false;cat.comeOver=false;cat.away=false;if(cat.state==='walk'||cat.state==='hop'){cat.target=null;}paintNap();dirty=true;}
+function napEnd(quiet){cat.nap=false;const t=(performance.now()-t0)/1000;if(!quiet)act(t,'yawn','stretch');else if(!cat.inBox)cat.state='sit';paintNap();dirty=true;}
+function paintNap(){const on=!!cat.nap,tt=on?'Wake her up':'Let her nap';sitKey.setAttribute('aria-pressed',String(on));sitKey.title=tt;sitKey.setAttribute('aria-label',tt);
+  if(pipSit){pipSit.setAttribute('aria-pressed',String(on));pipSit.title=tt;pipSit.setAttribute('aria-label',tt);pipSit.classList.toggle('on',on);}}
+sitKey.addEventListener('click',()=>{cat.nap?napEnd():napStart();});
+win.addEventListener('pointerdown',()=>{if(cat.nap)napEnd();}); /* the clock too: touch the board and she wakes */
+const feedKey=$('feedKey');function feed(){if(cat.nap)napEnd(true);dropTreat();}feedKey.addEventListener('click',feed);
+paintNap();
 /* ================= Float: the board in a small window that stays on top =================
    Chrome and Edge (Document Picture-in-Picture): the real clock and desk move into an always-on-top window,
    so the cat keeps walking and you can still pet her there. Safari: a video picture-in-picture of the clock and
@@ -1127,27 +1240,27 @@ async function floatDoc(){
   /* copy the page's styles in as text (links don't always load into a picture-in-picture window) */
   for(const sh of document.styleSheets){try{const s=pw.document.createElement('style');s.textContent=[...sh.cssRules].map(r=>r.cssText).join('\n');pw.document.head.appendChild(s);}
     catch(e){if(sh.href){const n=pw.document.createElement('link');n.rel='stylesheet';n.href=sh.href;pw.document.head.appendChild(n);}}}
-  const st=pw.document.createElement('style');st.textContent='html,body{margin:0;height:100%;background:#050607;overflow:hidden}body{display:flex;flex-direction:column;gap:6px;padding:6px;box-sizing:border-box}.pipbar{flex:0 0 auto;display:flex;align-items:center;gap:4px;height:26px;padding:0 2px;color:var(--pc,#ccc)}.pipleft{display:flex;gap:2px;margin-right:auto;opacity:.5;transition:opacity .2s}body:hover .pipleft{opacity:1}.pipbtn{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;color:inherit}.pipbtn:hover{background:rgba(255,255,255,.08)}.pipbtn svg{width:17px;height:15px;fill:currentColor}.pipbtn.on{background:rgba(255,255,255,.12)}.pipbtn:disabled{opacity:.3;cursor:default} /* under the desk, bottom right, never over the display */.pipdots{display:flex;gap:2px;opacity:.4;transition:opacity .2s}body:hover .pipdots,.pipdots:focus-within{opacity:1}.pipdots button{color:inherit;position:relative;width:28px;height:24px;border:0;border-radius:3px;padding:0;background:transparent;cursor:pointer;display:grid;place-items:center}.pipdots canvas{width:20px;height:13px;display:block}.pipdots button::after{content:"";position:absolute;left:50%;bottom:0;width:10px;height:2px;margin-left:-5px;background:repeating-linear-gradient(90deg,currentColor 0 2px,transparent 2px 4px);opacity:0}.pipdots button[aria-pressed="true"]::after{opacity:1}.pipdots button:hover{background:rgba(255,255,255,.08)}.pipmute{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;opacity:.5;transition:opacity .2s}.pipmute:hover{background:rgba(255,255,255,.08)}body:hover .pipmute,.pipmute:focus-visible,.pipmute.muted{opacity:1}.pipmute[hidden]{display:none}.pipmute svg{width:20px;height:17px;fill:currentColor;filter:drop-shadow(0 0 2px currentColor)}.pipmute svg+svg,.pipmute.muted svg:first-child{display:none}.pipmute.muted svg+svg{display:block}';
+  const st=pw.document.createElement('style');st.textContent='html,body{margin:0;height:100%;background:#050607;overflow:hidden}body{display:flex;flex-direction:column;gap:0;padding:6px;box-sizing:border-box}.pipbar{flex:0 0 auto;margin-top:6px;display:flex;align-items:center;gap:4px;height:26px;padding:0 2px;color:var(--pc,#ccc)}.pipleft{display:flex;gap:2px;margin-right:auto;opacity:.5;transition:opacity .2s}body:hover .pipleft{opacity:1}.pipbtn{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;color:inherit}.pipbtn:hover{background:rgba(255,255,255,.08)}.pipbtn svg{width:17px;height:15px;fill:currentColor}.pipbtn.on{background:rgba(255,255,255,.12)}.pipbtn:disabled{opacity:.3;cursor:default} /* under the desk, bottom right, never over the display */.pipdots{display:flex;gap:2px;opacity:.4;transition:opacity .2s}body:hover .pipdots,.pipdots:focus-within{opacity:1}.pipdots button{color:inherit;position:relative;width:28px;height:24px;border:0;border-radius:3px;padding:0;background:transparent;cursor:pointer;display:grid;place-items:center}.pipdots canvas{width:20px;height:13px;display:block}.pipdots button::after{content:"";position:absolute;left:50%;bottom:0;width:10px;height:2px;margin-left:-5px;background:repeating-linear-gradient(90deg,currentColor 0 2px,transparent 2px 4px);opacity:0}.pipdots button[aria-pressed="true"]::after{opacity:1}.pipdots button:hover{background:rgba(255,255,255,.08)}.pipmute{width:28px;height:24px;border:0;border-radius:3px;padding:0;display:grid;place-items:center;cursor:pointer;background:transparent;opacity:.5;transition:opacity .2s}.pipmute:hover{background:rgba(255,255,255,.08)}body:hover .pipmute,.pipmute:focus-visible,.pipmute.muted{opacity:1}.pipmute[hidden]{display:none}.pipmute svg{width:20px;height:17px;fill:currentColor;filter:drop-shadow(0 0 2px currentColor)}.pipmute svg+svg,.pipmute.muted svg:first-child{display:none}.pipmute.muted svg+svg{display:block}';
   pw.document.head.appendChild(st);pw.document.title='Loaf FM';
   floatNote.style.minHeight=(win.offsetHeight+gameWin.offsetHeight+8)+'px';floatNote.hidden=false;
   pw.document.body.append(win,gameWin);
   const mb=pw.document.createElement('button');mb.type='button';mb.className='pipmute';mb.innerHTML='<svg viewBox="-1 -1 13 11" shape-rendering="crispEdges"><path d="'+VOL_ON+'"/></svg><svg viewBox="-1 -1 13 11" shape-rendering="crispEdges"><path d="'+VOL_OFF+'"/></svg>';
   mb.addEventListener('click',()=>setMuted(!muted));
   const bar=pw.document.createElement('div');bar.className='pipbar';const pd=pw.document.createElement('div');pd.className='pipdots';pd.setAttribute('role','group');pd.setAttribute('aria-label','Palette');
-  Object.entries(PALETTES).forEach(([id,p])=>{const d=pw.document.createElement('button');d.type='button';d.dataset.pal=id;d.title=p.name;d.setAttribute('aria-label',p.name);d.setAttribute('aria-pressed','false');const cv=pw.document.createElement('canvas');d.appendChild(cv);d._cv=cv;d._p=p;
+  Object.entries(PALETTES).filter(([id])=>SHOWN_PALETTES.includes(id)||id===S.palette).forEach(([id,p])=>{const d=pw.document.createElement('button');d.type='button';d.dataset.pal=id;d.title=p.name;d.setAttribute('aria-label',p.name);d.setAttribute('aria-pressed','false');const cv=pw.document.createElement('canvas');d.appendChild(cv);d._cv=cv;d._p=p;
     d.addEventListener('click',()=>{S.palette=id;save();paintKeys();layout();});pd.appendChild(d);});
   const left=pw.document.createElement('div');left.className='pipleft';
-  const fb=pw.document.createElement('button');fb.type='button';fb.className='pipbtn';fb.title='Give her a fish';fb.setAttribute('aria-label','Give her a fish');fb.innerHTML='<svg viewBox="-0.5 -2.5 12 12" shape-rendering="crispEdges"><path d="M2 0h4v1h-4zM1 1h6v1h-6zM8 1h2v1h-2zM0 2h1v1h-1zM2 2h8v1h-8zM0 3h9v1h-9zM0 4h10v1h-10zM1 5h6v1h-6zM8 5h2v1h-2zM2 6h4v1h-4z"/></svg>';fb.addEventListener('click',dropTreat);
-  const zb=pw.document.createElement('button');zb.type='button';zb.className='pipbtn';zb.innerHTML='<svg viewBox="-1.5 -1.5 9 9" shape-rendering="crispEdges"><path d="M0 0h6v1h-6zM4 1h2v1h-2zM3 2h2v1h-2zM2 3h2v1h-2zM1 4h2v1h-2zM0 5h6v1h-6z"/></svg>';zb.addEventListener('click',()=>sitKey.click());
-  left.append(fb,zb);bar.append(left,pd,mb);pw.document.body.appendChild(bar);pipMute=mb;pipDots=pd;pipFeed=fb;pipSit=zb;paintKeys();paintSit();
+  const fb=pw.document.createElement('button');fb.type='button';fb.className='pipbtn';fb.title='Give her a fish';fb.setAttribute('aria-label','Give her a fish');fb.innerHTML='<svg viewBox="-0.5 -2.5 12 12" shape-rendering="crispEdges"><path d="M2 0h4v1h-4zM1 1h6v1h-6zM8 1h2v1h-2zM0 2h1v1h-1zM2 2h8v1h-8zM0 3h9v1h-9zM0 4h10v1h-10zM1 5h6v1h-6zM8 5h2v1h-2zM2 6h4v1h-4z"/></svg>';fb.style.color='#ef8c32';fb.addEventListener('click',feed);
+  const zb=pw.document.createElement('button');zb.type='button';zb.className='pipbtn';zb.innerHTML='<svg viewBox="-1.5 -1.5 9 9" shape-rendering="crispEdges"><path d="M0 0h6v1h-6zM4 1h2v1h-2zM3 2h2v1h-2zM2 3h2v1h-2zM1 4h2v1h-2zM0 5h6v1h-6z"/></svg>';zb.addEventListener('click',()=>sitKey.click());zb.title='Let her nap';zb.setAttribute('aria-label','Let her nap');
+  left.append(fb,zb);bar.append(left,pd,mb);pw.document.body.appendChild(bar);pipMute=mb;pipDots=pd;pipFeed=fb;pipSit=zb;paintKeys();paintNap();
   floatWin=pw;host=pw;restartLoop();
   pw.addEventListener('resize',relayout);
   ['pointermove','pointerdown','keydown'].forEach(ev=>pw.document.addEventListener(ev,noteActive,{passive:true}));
   pw.addEventListener('pagehide',()=>{pipMute=null;pipDots=null;pipFeed=null;pipSit=null;floatNote.before(win,gameWin);floatNote.hidden=true;floatWin=null;host=window;restartLoop();layout();paintFloat();},{once:true});
   layout();paintFloat();}
 function vidFrame(){const g=vidPip.g,w=vidPip.cv.width,h1=Math.round(w/4),h2=Math.round(w*GH/W);g.fillStyle='#050607';g.fillRect(0,0,w,vidPip.cv.height);
-  g.drawImage(bgC,0,0,w,h1);g.drawImage(ledC,0,0,w,h1);g.drawImage(gbgC,0,h1+6,w,h2);g.drawImage(gledC,0,h1+6,w,h2);}
-function prepVid(){if(vidPip.ready)return;const c=document.createElement('canvas');c.width=640;c.height=160+6+80;vidPip.cv=c;vidPip.g=c.getContext('2d');vidPip.ready=true;vidFrame();
+  g.drawImage(bgC,0,0,w,h1);g.drawImage(ledC,0,0,w,h1);g.drawImage(gbgC,0,h1,w,h2);g.drawImage(gledC,0,h1,w,h2);}
+function prepVid(){if(vidPip.ready)return;const c=document.createElement('canvas');c.width=640;c.height=160+Math.round(640*GH/W);vidPip.cv=c;vidPip.g=c.getContext('2d');vidPip.ready=true;vidFrame();
   vid.muted=true;vid.playsInline=true;vid.setAttribute('playsinline','');vid.setAttribute('aria-hidden','true');vid.style.cssText='position:fixed;width:2px;height:2px;opacity:0;pointer-events:none;bottom:0;right:0';
   document.body.appendChild(vid);vid.srcObject=c.captureStream(30);vid.play().catch(()=>{});
   vid.addEventListener('pause',()=>{if(!vidPip.on)return;setMuted(!muted);vid.play().catch(()=>{});}); /* Safari's pause button in the floating picture mutes and unmutes; the cat keeps moving */
@@ -1161,13 +1274,17 @@ paintFloat();
 let rt;const relayout=()=>{clearTimeout(rt);rt=setTimeout(layout,60);};window.addEventListener('resize',relayout);
 if('ResizeObserver' in window){const ro=new ResizeObserver(relayout);ro.observe(face);ro.observe(win);}
 restartLoop();
+/* a first visit tunes to Late Shift and plays only if the browser lets sound start by itself; otherwise it waits,
+   tuned, for Play or MAKE ONE. The play key never says Stop while the sound is held. */
+if(FIRST&&!BC&&!new URLSearchParams(location.search).get('tape')){try{const pol=navigator.getAutoplayPolicy?navigator.getAutoplayPolicy('audiocontext'):'';
+  if(pol!=='disallowed'){const a=ensureAudio();setTimeout(()=>{if(a.state==='running'&&!gen)playRadio();},80);}}catch(e){}}
 if(BC){const st=[...CALM,...MUSIC].find(s=>s.id===S.station)||(draft&&S.station==='tape:draft'&&{name:draft.n})||MUSIC[0];S.stationName=st.name;fillStations();
   const begin=()=>{if(!gen)genStart(S.station);if(actx&&actx.state!=='running'){const o=document.createElement('button');o.className='bcstart';o.textContent='Click to start the sound';
       o.addEventListener('click',()=>{actx.resume();o.remove();});document.body.appendChild(o);}};
   begin();
   if(BC.rotate&&BC.list.length>1){let i=Math.max(0,BC.list.indexOf(S.station));setInterval(()=>{i=(i+1)%BC.list.length;const nx=[...CALM,...MUSIC].find(s=>s.id===BC.list[i]);
       genStop(false);setTimeout(()=>{S.station=nx.id;S.stationName=nx.name;dirty=true;fillStations();genStart(S.station);},1200);},BC.rotate*60000);} /* a gentle fade between stations */
-  if(BC.treats)setInterval(()=>{if(Math.random()<1/25&&!S.sitStart)dropTreat();},60000);} /* a treat every 25 minutes or so */
+  if(BC.treats)setInterval(()=>{if(Math.random()<1/25&&!cat.nap)dropTreat();},60000);} /* a treat every 25 minutes or so */
 
 /* ================= Moving between pages without stopping the radio =================
    Links inside the site swap the page below the board instead of reloading, so the cat and the music carry on.
