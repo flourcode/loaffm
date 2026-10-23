@@ -94,7 +94,7 @@ function save(){if(BC)return;try{localStorage.setItem(STORE,JSON.stringify(S));}
    ?broadcast=video   for uploaded videos: no clock or date (they'd be wrong later); the display shows the station's frequency
    ?broadcast=live    for a 24/7 livestream: the frequency up top, the real time on the small line, in one time zone
    Options: &station=late|window|crt|sunday|desert|purr|rain|ocean|fire|brown   &tz=America/Los_Angeles (live)
-            &rotate=60&stations=late,window,desert (change station every N minutes)   &palette=pegs|teal|amber|crt|moon|ember
+            &rotate=60&stations=late,window,desert (change station every N minutes)   &palette=pegs|teal|red|amber|crt|moon|ember
             &vol=0.8   &case=dark|light   &treats=0 (no automatic treats)   &label=JST (time-zone label)   &dim=0 (no evening dimming)
    Full-screen 16:9 board, no page or controls, sound starts by itself (OBS allows it), she never dozes off waiting
    for a mouse that isn't coming, and every so often a treat drops on its own. */
@@ -119,15 +119,16 @@ function tzLabel(){if(!BC||!BC.tz)return '';if(BCQ.get('label'))return BCQ.get('
 const PALETTES={
   /* Pegs: a black pegboard with coloured plastic pegs, like the light-up toy from the 80s. Every digit gets its own colour,
      the desk edge is a row of rainbow pegs, and now and then a peg is in the wrong place, the way a kid would leave it. */
-  pegs:  {name:'Pegs',      primary:'#f4ebd8',secondary:'#f2d14d',accent:'#e85a4f',bg:'#050505',seed:'#707070',off:'#141518',deep:'#26202e',mid:'#a278d6',hi:'#f8f0dc',fish:'#ef8c32',peg:true,
-          rainbow:['#e85a4f','#ef8c32','#f2d14d','#55c975','#54a7e8','#e66ac4','#a278d6'],digits:['#e85a4f','#f2d14d','#55c975','#54a7e8']}, /* fun: the signature look */
-  teal:  {name:'Teal Stereo',primary:'#63ddd1',secondary:'#ff8a3d',accent:'#f05d4e',bg:'#061718',seed:'#238c89',off:'#102324',deep:'#174b4b',mid:'#286f6c',hi:'#c5fff5',fish:'#ff8a3d'}, /* cool: an 80s receiver, teal with warm orange details */
-  amber: {name:'Amber Radio',primary:'#f5b642',secondary:'#f3e1ba',accent:'#ef5548',bg:'#18100a',seed:'#b96d20',off:'#251811',deep:'#4a2c18',mid:'#b96e27',hi:'#ffe6a1',fish:'#f3e1ba'}, /* cozy: the clock radio on the dresser */
+  pegs:  {name:'808',       primary:'#f4ecd8',secondary:'#f08a24',accent:'#e8392b',bg:'#050505',seed:'#707070',off:'#151412',deep:'#2a1a12',mid:'#c9632a',hi:'#fff6e0',fish:'#f08a24',peg:true,meter:['#f2d14d','#f08a24','#e8392b'],
+          rainbow:['#e8392b','#f08a24','#f2d14d','#f4ecd8','#e8392b','#f08a24','#f2d14d','#f4ecd8'],digits:['#e8392b','#f08a24','#f2d14d','#f4ecd8']}, /* the default: the 808's step-key colours (red, orange, yellow, cream) as glowing pegs. Id kept as 'pegs' so saved choices still work */
+  teal:  {name:'VFD',       primary:'#63ddd1',secondary:'#ff8a3d',accent:'#e8392b',bg:'#061314',seed:'#238c89',off:'#0f2021',deep:'#143f3f',mid:'#2a7c77',hi:'#d4fff8',fish:'#ff8a3d',meter:['#2a9d94','#63ddd1','#ff8a3d']}, /* cool: a vacuum-fluorescent receiver display, cyan with orange, same as the tuner */
+  red:   {name:'Red LED',   primary:'#ff2a1a',secondary:'#ff5a3c',accent:'#ffb03a',bg:'#120403',seed:'#a8170e',off:'#1e0706',deep:'#3a0b08',mid:'#a3180f',hi:'#ff8f78',fish:'#ffb03a',floor:.45,meter:['#8a140c','#ff2a1a','#ff8f78']}, /* late night: the bedside clock radio, red seven-segment glow, low glare */
+  amber: {name:'Amber',     primary:'#ffb03a',secondary:'#ff7a1f',accent:'#e8392b',bg:'#140b05',seed:'#b96d20',off:'#22140a',deep:'#4a2a12',mid:'#c06a1c',hi:'#ffe2a8',fish:'#ff7a1f',floor:.45,meter:['#c06a1c','#ffb03a','#e8392b']}, /* late night: one warm LED colour, low glare */
   crt:   {name:'Phosphor',  primary:'#f1e9c9',secondary:'#b7d39c',accent:'#d9785a',bg:'#0c120e',seed:'#527256',off:'#131c15',deep:'#26392a',mid:'#6f8d67',hi:'#fbf6e2',fish:'#e6a44b'},
   moon:  {name:'Moonlight', primary:'#afc8f4',secondary:'#a88dd8',accent:'#ebcb7d',bg:'#090b1c',seed:'#354f78',off:'#101429',deep:'#17213e',mid:'#354a82',hi:'#f0f4ff',fish:'#ebcb7d',floor:.5}, /* dreamy: icy blue with lavender and pale gold */
   ember: {name:'Ember',     primary:'#ed9272',secondary:'#c65b45',accent:'#f2c46b',bg:'#120d0c',seed:'#7b3029',off:'#1c1312',deep:'#3a1c1c',mid:'#7b3029',hi:'#f7b89a',fish:'#f2c46b',floor:.55}};
-const SHOWN_PALETTES=['pegs','teal','amber','moon']; /* the four looks on offer; Phosphor and Ember still work for anyone who chose them */
-const TRACK_PALETTE=['amber','teal','moon','pegs']; /* Lo-fi, House, Ambient, 8-bit */
+const SHOWN_PALETTES=['pegs','teal','red']; /* three looks: 808, VFD, Amber. Moonlight, Phosphor and Ember still work for anyone who chose them (and in broadcast links) */
+const TRACK_PALETTE=['red','pegs','teal','pegs']; /* Lo-fi → Red LED, House → 808, Ambient → VFD, 8-bit → 808 */
 function pal(){const p=PALETTES[S.palette]||PALETTES.pegs;return {PEG:p.peg?p.rainbow.map(hexInt):null,DIG:p.peg?p.digits.map(hexInt):null,C:hexInt(p.primary),S2:hexInt(p.secondary),A:hexInt(p.accent),BG:hexInt(p.bg),pegs:null,OFF:p.off,DEEP:hexInt(p.deep),MID:hexInt(p.mid),HI:hexInt(p.hi),FISH:hexInt(p.fish),floor:p.floor||0};}
 const DAYS=['SUN','MON','TUE','WED','THU','FRI','SAT'],MONTHS=['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
 function clock(d){let h=d.getHours();const ap=h>=12?'PM':'AM';if(!H24)h=h%12||12;return {s:(H24?String(h).padStart(2,'0'):String(h))+':'+String(d.getMinutes()).padStart(2,'0'),ap,date:DAYS[d.getDay()]+' '+MONTHS[d.getMonth()]+' '+d.getDate()};}
@@ -575,6 +576,7 @@ function draw(t,now){fb.fill(-1);const P=pal();
   if(R(P.BG)+G(P.BG)+B(P.BG)>0)rect(0,0,W,H,dim(P.BG,.6));
   /* left: the clock */
   let ck=clock(now);if(BC){const f=freqOf(S.station);ck={s:f,ap:'FM',date:BC.mode==='live'?(clock(now).s+' '+clock(now).ap+' '+tzLabel()).trim():'STEREO'};}
+  if(blink12){if(performance.now()>blink12||playing())blink12=0;else ck={s:Math.floor(performance.now()/550)%2?'':'12:00',ap:'',date:ck.date};}
   let card;if(flash.until>Date.now())card={label:'',text:flash.msg,flash:true};
   else{card=currentCard();if(card.k+card.text!==cardKey){cardKey=card.k+card.text;cardStart=t;}}
   const on=playing();
@@ -623,7 +625,7 @@ function breath(t,P,x0,area){const cyc=10,ph=t%cyc,inh=ph<4,q=inh?ph/4:1-(ph-4)/
   const bx=x0,bw=area,w=Math.max(1,Math.round(bw*e)),cx=bx+Math.round((bw-w)/2);for(let y=22;y<28;y++)rect(cx,y,w,1,dim(P.C,y===22||y===27?.35:.55+.45*e));}
 /* the 16-band meter: bars snap up on the beat, the tops run orange and red, a peak cap hangs for a moment */
 function meter(t,P,x0,area,eqH){const b=vu(t);const pitch=area>=90?6:4,bw=pitch-2,nb=Math.floor((area+2)/pitch); /* 80s LED meter: chunky bars with a gap between them */
-  const GRN=0x55c975,AMB=0xf2d14d,RED=0xe85a4f;const col=j=>{const f=(j+1)/eqH;return f>.9?RED:f>.55?AMB:GRN;}; /* green, then amber, then red at the top, like the real thing */
+  const pp=PALETTES[S.palette]||PALETTES.pegs,M=(pp.meter||['#55c975','#f2d14d','#e85a4f']).map(hexInt),GRN=M[0],AMB=M[1],RED=M[2]; /* each look has its own meter: 808 yellow-orange-red, VFD cyan with an orange top, Amber in ambers */const col=j=>{const f=(j+1)/eqH;return f>.9?RED:f>.55?AMB:GRN;}; /* green, then amber, then red at the top, like the real thing */
   for(let i=0;i<nb;i++){const k=Math.floor(i*16/nb),hgt=Math.max(1,Math.min(eqH,Math.round(b[k]*eqH)));for(let j=0;j<hgt;j++)rect(x0+i*pitch,28-j,bw,1,col(j));
     const pj=Math.min(eqH-1,Math.round(peaks[k]*eqH)-1);if(pj>=hgt&&pj>0)rect(x0+i*pitch,28-pj,bw,1,dim(col(pj),.85));}
 }
@@ -773,7 +775,7 @@ mt.innerHTML=`<header class="mt-head"><span class="mt-print mt-where"></span><bu
 <div class="mt-now"><div class="mt-left"><button type="button" class="mt-big"></button></div><div class="mt-info">
 <p class="mt-title"></p><p class="mt-freq"></p><p class="mt-recipe"></p>
 <div class="mt-renamebox" hidden><input type="text" class="mt-name" maxlength="24" autocomplete="off" spellcheck="false" aria-label="Tape name"><button type="button" class="hw mt-renamedone">OK</button></div>
-<div class="mt-acts"><button class="hw mt-play" type="button">PLAY</button><button class="hw mt-make" type="button">MAKE A MIXTAPE</button><button class="hw mt-savedraft" type="button">SAVE TAPE</button><button class="hw mt-keepmixing" type="button">KEEP MIXING</button><button class="hw mt-share" type="button">SHARE</button><button class="hw mt-rename" type="button">RENAME</button><button class="hw mt-edit" type="button">CHANGE MIX</button><button class="hw mt-keep" type="button">KEEP THIS TAPE</button></div>
+<div class="mt-acts"><button class="hw mt-play" type="button">PLAY</button><button class="hw mt-make" type="button">MAKE A MIXTAPE</button><button class="hw mt-savedraft" type="button">SAVE TAPE</button><button class="hw mt-keepmixing" type="button">KEEP MIXING</button><button class="hw mt-share" type="button">SHARE</button><button class="hw mt-rename" type="button">RENAME</button><button class="hw mt-edit" type="button">REMIX</button><button class="hw mt-keep" type="button">KEEP THIS TAPE</button></div>
 <p class="mt-hint"></p><p class="mt-note2" aria-live="polite"></p>
 <p class="mt-links"><button type="button" class="mt-lk mt-again">Make your own</button><button type="button" class="mt-lk mt-card">Save as picture</button><button type="button" class="mt-lk mt-del">Delete tape</button></p></div></div>
 <div class="mt-build" hidden>
@@ -1030,8 +1032,8 @@ function pick(t,now){const night=nightDim(now)<.7;let r=Math.random();const gk=g
 const BOX_X=2,BOX_IN=BOX_X+3,BOX_OUT=BOX_X+21,DESK_MIN=BOX_OUT;
 /* her entrance, once per browser session: peeking over the box straight away, then a hop out at about 1.15 s and a
    little walk to the keyboard. Reduced motion skips it (she's just sitting there). Touching the desk finishes it. */
-let entering=false;
-if(!BC&&!RM.matches){try{if(!sessionStorage.getItem('loafIn')){sessionStorage.setItem('loafIn','1');entering=true;}}catch(e){}}
+let entering=false,blink12=0; /* blink12: a fresh session opens with the clock blinking 12:00, like every VCR nobody set */
+if(!BC&&!RM.matches){try{if(!sessionStorage.getItem('loafIn')){sessionStorage.setItem('loafIn','1');entering=true;blink12=performance.now()+4200;}}catch(e){}}
 if(entering){cat.inBox=true;cat.x=BOX_IN;cat.dir=1;cat.state='box';cat.t0=-.5;cat.until=1.15;cat.next=Math.round(W/2-10);}
 function endEntrance(){if(!entering)return;entering=false;if(cat.inBox||cat.state==='hop'){const t=(performance.now()-t0)/1000;cat.inBox=false;cat.x=BOX_OUT;cat.next=null;cat.hop=null;cat.state='sit';cat.until=t+4;dirty=true;}}
 const BOX=['X..................X','.X................X.','..LLLLLLLLLLLLLLLL..','..HTTTTTTTKKTTTTTD..','..HTTTTTTTKKTWWWWD..','..HTTTTTTTKKWWWWTD..','..SSSSSSSSSSSSSSSS..']; /* H lit side, D shaded side, S shadow at the base, K packing tape, W a crooked shipping label */
@@ -1100,7 +1102,7 @@ function drawSky(t,P,now){const peg=k=>[P.A,P.HI,P.FISH,P.S2][k],kind=skyKind(no
     for(let i=0;i<(RM.matches?5:9);i++){const sp=3+(i*7%5),x=(i*14+5+wob+W)%W,head=(t*sp+i*5.3)%19-3;
       for(let j=0;j<4;j++){const y=Math.floor(head)-j;if(y>=0&&y<13)put(x,y,dim(cc,j?.55-j*.12:.95));}}
     const g=t%6.5;if(g<.18){const y=Math.floor((t*7)%13);for(let x=0;x<W;x+=2)put(x+(Math.floor(t*40)%2),y,dim(cc,.35));}}
-  else if(kind==='rain'){const rc=P.PEG?P.PEG[4]:peg(3);for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(rc,.6));put(x+.5,y-1,dim(rc,.25));}} /* rain is blue on the pegboard */
+  else if(kind==='rain'){const rc=P.PEG?dim(P.HI,.8):peg(3);for(let i=0;i<(RM.matches?8:16);i++){const y=(t*10+i*4.3)%13,x=(i*8+5-y*.5+W)%W;put(x,y,dim(rc,.6));put(x+.5,y-1,dim(rc,.25));}} /* rain is blue on the pegboard */
   else if(kind==='snow')for(let i=0;i<(RM.matches?7:14);i++){const y=(t*2.2+i*3.7)%13,x=(i*9.1+Math.sin(t*.8+i)*2.2+W)%W;put(x,y,dim(P.HI,.8));}
   else if(kind==='leaves')for(let i=0;i<(RM.matches?4:8);i++){const y=(t*1.6+i*2.9)%13,sw=Math.sin(t*1.1+i*2),x=((i*16.3+sw*4+t*1.5)%W+W)%W,c=dim(peg([0,2,0,2,1,0,2,0][i]),.85);put(x,y,c);put(x+1,y+(sw>0?1:-1),dim(c,.6));} /* two-dot leaves that tumble as they fall */
   else if(kind==='petals')for(let i=0;i<(RM.matches?5:9);i++){const y=(t*1.3+i*2.1)%13,sw=Math.sin(t*.9+i*1.7),x=((i*14.7+sw*5+t*1.2)%W+W)%W,c=i%3?0xff9ec4:dim(P.C,.7);put(x,y,c);if(sw>.3)put(x+1,y,dim(c,.5));}
@@ -1178,6 +1180,7 @@ function plip(){try{const a=ensureAudio(),t0=a.currentTime,o=a.createOscillator(
   g.gain.setValueAtTime(.035,t0);g.gain.exponentialRampToValueAtTime(.0001,t0+.12);o.connect(g).connect(a.destination);o.start(t0);o.stop(t0+.14);}catch(e){}} /* a tiny plip as it lands */
 function munch(){try{const a=ensureAudio(),t0=a.currentTime;for(let k=0;k<3;k++){const t=t0+.15+k*.42,s=a.createBufferSource(),n=a.sampleRate*.05,bf=a.createBuffer(1,n,a.sampleRate),d=bf.getChannelData(0);
     for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);s.buffer=bf;const lp=a.createBiquadFilter();lp.type='lowpass';lp.frequency.value=1100;const g=a.createGain();g.gain.value=.05;s.connect(lp).connect(g).connect(a.destination);s.start(t);}}catch(e){}} /* three soft little crunches */
+document.addEventListener('pointerdown',()=>{blink12=0;},{capture:true});
 gameWin.addEventListener('pointerdown',e=>{e.preventDefault();endEntrance();if(cat.nap){napEnd();return;}const hit=catHit(e);
   if(cat.eat||cat.state==='fed'||cat.state==='hop')return; /* let her eat (or land) in peace */
   if(hit.near){if(!S.petSeen){S.petSeen=1;save();if(petHint)petHint.hidden=true;}cat.purr=true;cat.pets=0;if(cat.state!=='sleep'&&!cat.inBox)cat.state='sit';purrStart();}
