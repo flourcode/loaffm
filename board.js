@@ -58,8 +58,8 @@ function tapeOf(id){if(typeof id!=='string'||!id.startsWith('tape:'))return null
 function tapeStyle(tp){tp=tp||cleanTape({});const bk=TAPE_BASES[tp.b],st=Object.assign({},STYLES['gen:'+bk]);
   st.prog=['warm','minor','jazz'][tp.m];if(bk==='desert'&&tp.m===1)st.prog='drone';
   st.drums=['none','brush',bk==='crt'?'four':'sparse'][tp.d];st.hats=tp.d===2?(bk==='crt'?.5:.25):0;
-  const lo=56+tp.t*.28;st.bpm=[lo,lo+3];st.mel=.08+tp.u/100*.5;st.blips=bk==='crt'?.3+tp.u/100*1.2:0;
-  st.lp=2000+tp.o*20;st.hiss=1.3-tp.o/100*.9;
+  const lo=50+tp.t*.5;st.bpm=[lo,lo+1];st.busy=tp.u/100;st.mel=.1+st.busy*.9;st.blips=bk==='crt'?.2+st.busy*1.6:0;st.tape=true;st.drumsAlways=tp.d>0;
+  st.lp=Math.round(650*Math.pow(10,tp.o/100));st.hiss=.3+(1-tp.o/100)*.9;st.hissF=1200+tp.o*40;st.wobble=3+(1-tp.o/100)*12; /* Tone: 650 Hz (through the wall) to 6.5 kHz (crisp) */
   st.rain=tp.w===1?.5:0;st.waves=tp.w===2?.45:0;st.fire=tp.w===3?.35:0;st.purr=tp.w===4?.2:0;st.crickets=bk==='desert'?1:0;return st;}
 function levelOf(id){if(GEN_LEVEL[id]!=null)return GEN_LEVEL[id];const tp=tapeOf(id);return tp?GEN_LEVEL['gen:'+TAPE_BASES[tp.b]]:.8;}
 function freqOf(id){if(FREQ[id])return FREQ[id];const tp=tapeOf(id);return tp?(tp.f/10).toFixed(1):'88.3';} /* every tape keeps its own spot on the dial, chosen when it's made */
@@ -194,14 +194,14 @@ const STYLES={
   'gen:sunday':{phrase:'approach',bpm:[74,78],swing:.2, prog:'jazz', bars:2,keys:'ep',pad:.3,bass:1.1,drums:'brush',hats:0,melody:'ep',mel:.35,hiss:.8,lp:3000,rev:.22,purr:.18,level:1},
   'gen:desert':{phrase:'wide',bpm:[58,62],swing:0,  prog:'drone',bars:4,keys:'none',pad:1,bass:.7,drums:'none',hats:0,melody:'bell',mel:.35,hiss:.5,lp:2600,rev:.4,crickets:1,level:1}};
 function makeVerb(a,sec){const n=Math.round(a.sampleRate*sec),b=a.createBuffer(2,n,a.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);let lp=0;for(let i=0;i<n;i++){lp=lp*.7+(Math.random()*2-1)*.3;d[i]=lp*Math.pow(1-i/n,2.6);}}const v=a.createConvolver();v.buffer=b;return v;}
-function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'white');let hg=null;
+function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'white');let hg=null,hfx=null;
   /* the signal chain: everything into a warm low-pass and a gentle tape saturation, with a soft room on a send */
   const bus=a.createGain();bus.gain.value=st.level;const warm=a.createBiquadFilter();warm.type='lowpass';warm.frequency.value=st.lp;warm.Q.value=.5;
   const sat=a.createWaveShaper();const cv=new Float32Array(1024);for(let i=0;i<1024;i++){const x=i/511.5-1;cv[i]=Math.tanh(1.6*x)/Math.tanh(1.6);}sat.curve=cv;
   const comp=a.createDynamicsCompressor();comp.threshold.value=-26;comp.knee.value=12;comp.ratio.value=3;comp.attack.value=.03;comp.release.value=.35; /* smooths out the odd louder hit */
-  bus.connect(warm).connect(sat).connect(comp).connect(dest);const verb=makeVerb(a,2.8),wet=a.createGain();wet.gain.value=st.rev;const send=a.createGain();send.connect(verb).connect(wet).connect(dest);
+  const warm2=a.createBiquadFilter();warm2.type='lowpass';warm2.frequency.value=st.lp;warm2.Q.value=.6;bus.connect(sat).connect(warm).connect(warm2).connect(comp).connect(dest); /* saturate first, then filter, so Tone's darkness sticks */ /* two filters in a row, so Tone really darkens */const verb=makeVerb(a,2.8),wet=a.createGain();wet.gain.value=st.rev;const send=a.createGain();send.connect(verb).connect(wet).connect(warm); /* the room goes through the tone filter too */
   /* tape wow: a slow wobble shared by every oscillator */
-  const wow=a.createOscillator();wow.frequency.value=.27;const wowG=a.createGain();wowG.gain.value=7;wow.connect(wowG);wow.start();
+  const wow=a.createOscillator();wow.frequency.value=.27;const wowG=a.createGain();wowG.gain.value=st.wobble||7;wow.connect(wowG);wow.start();
   const trem=a.createOscillator();trem.frequency.value=2.3;const tremG=a.createGain();tremG.gain.value=.07; /* slow and shallow: wobble near 4 Hz is the most attention-grabbing kind */trem.connect(tremG);trem.start();
   const srcs=[wow,trem];
   const drumBus=a.createGain();drumBus.gain.value=0;drumBus.connect(bus);
@@ -234,14 +234,14 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
   const cricket=(t)=>{const f=rnd(4300,4900),n=2+Math.floor(Math.random()*3),pan=rnd(-.8,.8);for(let i=0;i<n;i++){const tt=t+i*.11,o=a.createOscillator(),am=a.createOscillator(),ag=a.createGain(),g=a.createGain();o.frequency.value=f;am.frequency.value=rnd(16,20);
     am.connect(ag.gain);ag.gain.value=0;g.gain.setValueAtTime(0,tt);g.gain.linearRampToValueAtTime(.004,tt+.025);g.gain.linearRampToValueAtTime(0,tt+.08);o.connect(ag).connect(g);out(g,pan,.6);o.start(tt);am.start(tt);o.stop(tt+.09);am.stop(tt+.09);}};
   /* bed layers: tape hiss, and for some stations rain or a purr underneath */
-  if(st.hiss){const h=a.createBufferSource();h.buffer=white;h.loop=true;const hf=a.createBiquadFilter();hf.type='bandpass';hf.frequency.value=5000;hf.Q.value=.5;hg=a.createGain();hg.gain.value=.006*st.hiss;h.connect(hf).connect(hg).connect(dest);h.start();srcs.push(h);}
+  if(st.hiss){const h=a.createBufferSource();h.buffer=white;h.loop=true;const hf=a.createBiquadFilter();hfx=hf;hf.type='bandpass';hf.frequency.value=st.hissF||5000;hf.Q.value=.5;hg=a.createGain();hg.gain.value=.006*st.hiss;h.connect(hf).connect(hg).connect(dest);h.start();srcs.push(h);}
   const layers=[];const layerBus=g=>{const lg=a.createGain();lg.gain.value=g;lg.connect(dest);return lg;};
   if(st.rain){const r=SOUNDS['gen:rain'](a,layerBus(st.rain));srcs.push(...r.src);layers.push(r);}
   if(st.purr){const p=SOUNDS['gen:purr'](a,layerBus(st.purr));srcs.push(...p.src);layers.push(p);}
   if(st.waves){const w=SOUNDS['gen:waves'](a,layerBus(st.waves));srcs.push(...w.src);layers.push(w);}
   if(st.fire){const f=SOUNDS['gen:fire'](a,layerBus(st.fire));srcs.push(...f.src);layers.push(f);}
   /* the conductor */
-  const key=48+choose([0,2,3,5,7,8,10]);let bpm=rnd(...st.bpm),beat=60/bpm,t=a.currentTime+.4,prog=choose(PROGS[st.prog]),ci=0,bar=0,section='intro',secLeft=2,phrases=0,prevV=null,kickPat=choose([[0,10],[0,7,10],[0,10,14]]),melodyRest=0;
+  const key=48+choose([0,2,3,5,7,8,10]);let bpm=rnd(...st.bpm),beat=60/bpm,t=a.currentTime+.4,prog=choose(PROGS[st.prog]),ci=0,bar=0,section='intro',secLeft=2,phrases=0,prevV=null,kickPat=choose([[0,10],[0,7,10],[0,10,14]]),melodyRest=0;if(st.tape){section=st.drumsAlways?'groove':'melody';secLeft=1;} /* a mixtape skips the long intro, so the sliders have something to change straight away */;
   const voice=(root,type)=>{let ns=CH[type].map(i=>key+root+i);ns=ns.map(n=>{while(n<53)n+=12;while(n>71)n-=12;return n;}).sort((x,y)=>x-y);
     if(prevV){const avg=prevV.reduce((s,x)=>s+x,0)/prevV.length,a2=ns.reduce((s,x)=>s+x,0)/ns.length;if(a2-avg>4)ns=ns.map((n,i)=>i===ns.length-1?n-12:n).sort((x,y)=>x-y);else if(avg-a2>4)ns=ns.map((n,i)=>i===0?n+12:n).sort((x,y)=>x-y);}
     prevV=ns;return ns;};
@@ -266,33 +266,33 @@ function music(a,dest,st0){const st=Object.assign({},st0),white=makeNoise(a,6,'w
     secLeft=section==='break'?1:2+Math.floor(Math.random()*2);if(Math.random()<.3)kickPat=choose([[0,10],[0,7,10],[0,10,14],[0,6,10]]);};
   const barSlot=(b0)=>{ /* schedule one bar starting at b0 */
     const [root,type]=prog[ci],ns=voice(root,type),sw=i=>b0+i*beat/4+(i%2?st.swing*beat/2:0),firstBar=bar%st.bars===0,full=st.bars*4*beat;
-    const drumsOn=section==='groove'||section==='melody',lastBar=secLeft===1&&ci===prog.length-1&&bar%st.bars===st.bars-1;
+    const drumsOn=st.drumsAlways?section!=='intro':section==='groove'||section==='melody',lastBar=secLeft===1&&ci===prog.length-1&&bar%st.bars===st.bars-1;
     if(drumsOn&&!drumsWere){drumBus.gain.cancelScheduledValues(b0);drumBus.gain.setValueAtTime(.2,b0);drumBus.gain.linearRampToValueAtTime(1,b0+8*beat);}
     if(lastBar){pending=pickSection();if(drumsOn&&!(pending==='groove'||pending==='melody')){drumBus.gain.setValueAtTime(1,b0);drumBus.gain.linearRampToValueAtTime(.35,b0+4*beat);}}
-    drumsWere=drumsOn;const melOn=section==='melody'||(section==='keys'&&Math.random()<.3);
+    drumsWere=drumsOn;const BZ=st.busy;const melOn=BZ!=null?(section!=='intro'&&BZ>.12&&(section==='melody'||Math.random()<BZ)):(section==='melody'||(section==='keys'&&Math.random()<.3));
     if(firstBar){if(st.pad&&section!=='groove'||st.pad>=.8)pad(b0,ns.slice(0,4),full,st.pad);
       if(st.keys==='ep'){const v=rnd(.55,.85),spread=rnd(.012,.03);ns.forEach((m,i)=>ep(b0+i*spread,m,full*rnd(.55,.9),v*(i?.85:1)));if(Math.random()<.4)ns.slice(-2).forEach((m,i)=>ep(sw(10)+i*.02,m,beat*1.5,v*.55));}
       if(st.bass&&section!=='intro')bass(b0,key+root-12-(key+root-12>47?12:0),beat*rnd(2.5,3.5),st.bass);}
-    else{if(st.keys==='ep'&&Math.random()<.35){const v=rnd(.4,.6);ns.slice(-3).forEach((m,i)=>ep(sw(choose([2,6,8]))+i*.02,m,beat*1.2,v));}
-      if(st.bass&&section!=='intro'&&Math.random()<.7)bass(sw(choose([0,8,10])),key+root-12-(key+root-12>47?12:0)+choose([0,0,7,12]),beat*1.4,st.bass*.85);}
+    else{if(st.keys==='ep'&&Math.random()<(BZ!=null?BZ*.9:.35)){const v=rnd(.4,.6);ns.slice(-3).forEach((m,i)=>ep(sw(choose([2,6,8]))+i*.02,m,beat*1.2,v));}
+      if(st.bass&&section!=='intro'&&Math.random()<(BZ!=null?.2+BZ*.8:.7))bass(sw(choose([0,8,10])),key+root-12-(key+root-12>47?12:0)+choose([0,0,7,12]),beat*1.4,st.bass*.85);}
     if(drumsOn){
-      if(st.drums==='sparse'){kick(sw(0),.8);if(Math.random()<.5)kick(sw(kickPat[1]||10),.55);snare(sw(12),.75);if(Math.random()<.25)snare(sw(choose([7,15])),.22);for(let i=2;i<16;i+=4)if(Math.random()<st.hats)hat(sw(i),rnd(.5,1));}
+      if(st.drums==='sparse'){kick(sw(0),.8);if(Math.random()<.5)kick(sw(kickPat[1]||10),.55);snare(sw(12),.75);if(Math.random()<.25)snare(sw(choose([7,15])),.22);for(let i=2;i<16;i+=(BZ!=null&&BZ>.6?2:4))if(Math.random()<(BZ!=null?.15+BZ*.8:st.hats))hat(sw(i),rnd(.5,1));}
       else if(st.drums==='four'){for(const i of [0,8])kick(sw(i),.7);snare(sw(4),.35);snare(sw(12),.5);for(let i=0;i<16;i+=2)if(Math.random()<st.hats)hat(sw(i),i%4?rnd(.4,.7):rnd(.7,1));}
       else if(st.drums==='brush'){for(let i=0;i<16;i+=4)brush(sw(i),rnd(.6,1),i%8===4);for(let i=2;i<16;i+=4)if(Math.random()<.6)brush(sw(i),rnd(.3,.5),false);if(Math.random()<.6)kick(sw(0),.4);}}
     else if(st.drums==='brush'&&section!=='intro'&&Math.random()<.5)for(let i=0;i<16;i+=8)brush(sw(i),.4,true);
-    if(st.melody==='arp'&&section!=='intro'){const cut=900+700*Math.sin(b0/23);const seq=ns.concat([ns[0]+12,ns[1]+12]);for(let i=0;i<16;i++)if(i%2===0||Math.random()<.5)pluck(sw(i),seq[(i+bar*3)%seq.length]+12,section==='break'?.5:rnd(.6,1),cut);}
-    else if(melOn&&Math.random()<st.mel*.8){if(melodyRest>0)melodyRest--;else{phrase(b0,root,sw);melodyRest=choose([0,1,1,2]);}}
+    if(st.melody==='arp'&&section!=='intro'){const cut=900+700*Math.sin(b0/23);const seq=ns.concat([ns[0]+12,ns[1]+12]);for(let i=0;i<16;i++)if(BZ!=null?(i%(BZ<.33?4:2)===0||Math.random()<BZ*.6):(i%2===0||Math.random()<.5))pluck(sw(i),seq[(i+bar*3)%seq.length]+12,section==='break'?.5:rnd(.6,1),cut);}
+    else if(melOn&&Math.random()<st.mel*.8){if(melodyRest>0)melodyRest--;else{phrase(b0,root,sw);if(BZ!=null&&BZ>.7&&Math.random()<.5)phrase(b0,root,sw);melodyRest=BZ!=null?(BZ>.5?0:choose([0,1,2])):choose([0,1,1,2]);}}
     if(st.blips&&Math.random()<.12)blip(sw(choose([3,7,11,15])),key+choose(PENT)+36);
     if(st.crickets&&Math.random()<.25)cricket(b0+rnd(0,full/st.bars));
     bar++;if(bar%st.bars===0){ci=(ci+1)%prog.length;if(ci===0){secLeft--;if(secLeft<=0)nextSection();}}};
-  return {src:srcs,tick(until){for(const l of layers)l.tick&&l.tick(until);while(t<until){barSlot(t);t+=4*beat;}},
+  return {src:srcs,ahead:st.tape?3:8,tick(until){for(const l of layers)l.tick&&l.tick(until);while(t<until){barSlot(t);t+=4*beat;}},
     update(ns){const oldProg=st.prog;Object.assign(st,ns);bpm=(ns.bpm[0]+ns.bpm[1])/2;beat=60/bpm; /* tempo, busyness, tone, drums and mood change live while it plays */
-      warm.frequency.setTargetAtTime(st.lp,a.currentTime,.5);if(hg)hg.gain.setTargetAtTime(.006*st.hiss,a.currentTime,.5);if(st.prog!==oldProg)prog=choose(PROGS[st.prog]);}};}
+      warm.frequency.setTargetAtTime(st.lp,a.currentTime,.08);warm2.frequency.setTargetAtTime(st.lp,a.currentTime,.08);if(hg)hg.gain.setTargetAtTime(.006*st.hiss,a.currentTime,.1);if(hfx&&st.hissF)hfx.frequency.setTargetAtTime(st.hissF,a.currentTime,.1);if(st.wobble)wowG.gain.setTargetAtTime(st.wobble,a.currentTime,.2);if(st.prog!==oldProg)prog=choose(PROGS[st.prog]);}};}
 for(const s of MUSIC)SOUNDS[s.id]=(a,dest)=>music(a,dest,STYLES[s.id]);
 
 function genStart(id){genStop(true);const a=ensureAudio();const master=a.createGain();master.gain.value=0;const an=a.createAnalyser();an.fftSize=64;an.smoothingTimeConstant=.8;
   master.connect(an);an.connect(a.destination);const g={id,master,an,src:[],timers:[]};
-  const snd=(SOUNDS[id]||((a,d)=>music(a,d,tapeStyle(tapeOf(id)))))(a,master);g.snd=snd;g.src.push(...snd.src);if(snd.tick){snd.tick(a.currentTime+8);g.timers.push(setInterval(()=>snd.tick(a.currentTime+8),1000));}
+  const snd=(SOUNDS[id]||((a,d)=>music(a,d,tapeStyle(tapeOf(id)))))(a,master);g.snd=snd;g.src.push(...snd.src);if(snd.tick){const ah=snd.ahead||8;snd.tick(a.currentTime+ah);g.timers.push(setInterval(()=>snd.tick(a.currentTime+ah),500));}
   master.gain.setValueAtTime(0,a.currentTime);master.gain.linearRampToValueAtTime(vol()*levelOf(id),a.currentTime+2);gen=g;dirty=true;paintKeys();}
 function genStop(quick){if(!gen)return;const g=gen;gen=null;g.timers.forEach(clearInterval);try{const a=actx;g.master.gain.cancelScheduledValues(a.currentTime);g.master.gain.setValueAtTime(g.master.gain.value,a.currentTime);
     g.master.gain.linearRampToValueAtTime(0,a.currentTime+(quick?.15:.8));setTimeout(()=>{g.src.forEach(s=>{try{s.stop();}catch(e){}});g.master.disconnect();},quick?250:1000);}catch(e){}dirty=true;paintKeys();}
@@ -455,7 +455,7 @@ mt.innerHTML=`<header class="mt-head"><h3>MIXTAPE</h3><p>Dial it in while it pla
 <div class="mt-row"><span class="mt-lab">Label</span><div class="mt-sw" role="group" aria-label="Label colour">${TAPE_COLORS.map((c,i)=>`<button type="button" data-c="${i}" style="--c:${c}" aria-label="Label colour ${i+1}"></button>`).join('')}</div></div>
 <button class="mt-more" type="button" aria-expanded="false">Adjust the sound</button></div>
 <div class="mt-right">${segHTML('b','Start from',['Late Shift','Rainy Window','CRT Dreams','Sunday Loaf','Desert Night'])}${segHTML('m','Mood',['Warm','Wistful','Jazzy'])}${segHTML('d','Drums',['None','Brushes','Soft beat'])}${segHTML('w','Weather',['None','Rain','Ocean','Fire','Purr'])}
-<div class="mt-sliders">${slHTML('t','Tempo','sleepy','steady')}${slHTML('u','Busyness','barely','a little')}${slHTML('o','Tone','dusty','clear')}</div>
+<div class="mt-sliders">${slHTML('t','Speed','slow','quick')}${slHTML('u','Notes','few','lots')}${slHTML('o','Tone','muffled','crisp')}</div>
 <div class="mt-actions"><button class="btn filled mt-save" type="button">Save tape</button><button class="btn tonal mt-link" type="button">Copy link</button><button class="btn outlined mt-del" type="button">Delete</button><span class="mt-note" aria-live="polite"></span></div></div></div>`;
 face.after(mt);
 const mtQ=sel=>mt.querySelector(sel);
