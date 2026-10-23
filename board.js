@@ -619,8 +619,8 @@ function draw(t,now){fb.fill(-1);const P=pal();
   if(on&&!twoLines)meter(t,P,x0,area,eqH);
 }
 /* CALM: a breathing light where the meter would be. Four seconds in, six out; follow it or don't */
-function breath(t,P,x0,area){const cyc=10,ph=t%cyc,inh=ph<4,q=inh?ph/4:1-(ph-4)/6,e=.5-.5*Math.cos(Math.PI*q);const lab=inh?'IN':'OUT';text(lab,x0,23,'small',dim(P.S2,.8));
-  const bx=x0+16,bw=area-16,w=Math.max(1,Math.round(bw*e)),cx=bx+Math.round((bw-w)/2);for(let y=22;y<28;y++)rect(cx,y,w,1,dim(P.C,y===22||y===27?.35:.55+.45*e));}
+function breath(t,P,x0,area){const cyc=10,ph=t%cyc,inh=ph<4,q=inh?ph/4:1-(ph-4)/6,e=.5-.5*Math.cos(Math.PI*q);
+  const bx=x0,bw=area,w=Math.max(1,Math.round(bw*e)),cx=bx+Math.round((bw-w)/2);for(let y=22;y<28;y++)rect(cx,y,w,1,dim(P.C,y===22||y===27?.35:.55+.45*e));}
 /* the 16-band meter: bars snap up on the beat, the tops run orange and red, a peak cap hangs for a moment */
 function meter(t,P,x0,area,eqH){const b=vu(t);const pitch=area>=90?6:4,bw=pitch-2,nb=Math.floor((area+2)/pitch); /* 80s LED meter: chunky bars with a gap between them */
   const GRN=0x55c975,AMB=0xf2d14d,RED=0xe85a4f;const col=j=>{const f=(j+1)/eqH;return f>.9?RED:f>.55?AMB:GRN;}; /* green, then amber, then red at the top, like the real thing */

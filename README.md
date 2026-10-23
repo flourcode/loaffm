@@ -84,7 +84,7 @@ Keep behaviours, remove controls. On a computer the row is PLAY/STOP, the dial, 
 
 **The tuner** is an 80s digital receiver: a dark glass readout with the band and position in orange (`FOCUS · 2/5`), the frequency big and the name in glowing cyan, ◀ ▶ hardware keys either side, and three band keys under it that are also the three ways to use Loaf FM: **FOCUS** (the five music stations), **CALM** (purr, rain, ocean, fire, brown noise) and **TAPES** (your mixtapes, with a count on the key so they're never hidden; with none it shows + and opens the deck). Tapping a band tunes to where you last were in it; tapping the lit band steps to the next. The real `<select id="station">` is still there, visually hidden, for keyboard and screen-reader users and the tests (`bandOf()`, `bandList()`, `paintDial()`, `dialTune()`, `dialStep()`).
 
-**CALM breathes.** On a calm sound the meter becomes a breathing light (`breath()`): a bar that swells for four seconds (IN) and shrinks for six (OUT).
+**CALM breathes.** On a calm sound the meter becomes a breathing light (`breath()`): a bar that swells for four seconds and shrinks for six, no labels.
 
 There is no performance control (a DROP key was tried and cut: it didn't earn its place).
 
